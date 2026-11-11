@@ -47,7 +47,11 @@ export function ScannerScreen() {
   const alive = useRef(true);
   const pickedOnce = useRef(false);
 
-  useEffect(() => () => { alive.current = false; }, []);
+  useEffect(() => {
+    // React Strict Mode may run setup/cleanup twice in development; restore the flag on setup.
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
 
   const runOcr = useCallback(async (imageUri: string) => {
     setStage('processing');
