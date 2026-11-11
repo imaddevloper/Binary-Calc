@@ -1,6 +1,7 @@
 type VercelRequest = {
   method?: string;
   body?: unknown;
+  headers?: Record<string, string | string[] | undefined>;
 };
 
 type VercelResponse = {
@@ -10,7 +11,8 @@ type VercelResponse = {
 };
 
 const MAX_IMAGE_BASE64_LENGTH = 4 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);\nconst requestBuckets = new Map<string, { count: number; resetAt: number }>();
+const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -41,7 +43,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const forwardedFor = req.headers?.["x-forwarded-for"];\n  const clientIp = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)?.split(",")[0]?.trim() || "unknown";\n  const now = Date.now();\n  const bucket = requestBuckets.get(clientIp);\n  if (bucket && bucket.resetAt > now && bucket.count >= 10) {\n    return res.status(429).json({ error: "Too many requests" });\n  }\n  if (!bucket || bucket.resetAt <= now) requestBuckets.set(clientIp, { count: 1, resetAt: now + 60_000 });\n  else bucket.count += 1;\n\n  const apiKey = process.env.OPENAI_API_KEY;
+  const forwardedFor = req.headers?.["x-forwarded-for"];
+  const clientIp = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)?.split(",")[0]?.trim() || "unknown";
+  const now = Date.now();
+  const bucket = requestBuckets.get(clientIp);
+  if (bucket && bucket.resetAt > now && bucket.count >= 10) {
+    return res.status(429).json({ error: "Too many requests" });
+  }
+  if (!bucket || bucket.resetAt <= now) requestBuckets.set(clientIp, { count: 1, resetAt: now + 60_000 });
+  else bucket.count += 1;
+
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return res.status(503).json({ error: "OCR service is not configured" });
 
   if (!isRecord(req.body)) return res.status(400).json({ error: "Invalid request body" });
@@ -107,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (value): value is string =>
         typeof value === "string" &&
         value.length <= 15 &&
-        /^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(value),
+        /^(?:\d{1,3}\.){3}\d{1,3}$/.test(value),
     );
 
     return res.status(200).json({ addresses });
