@@ -271,7 +271,7 @@ export const en = {
   'scan.tooBig': 'This image is too large (limit {mb} MB). Choose a smaller image.',
   'scan.unsupported': 'This file type is not supported. Choose a JPEG, PNG or WebP image.',
   'scan.cameraFailed': 'The camera could not take the picture. Please try again.',
-  'scan.localOnly': 'Text recognition runs on your device. Images are not uploaded and are not saved.',
+  'scan.localOnly': 'When online OCR is available, the image is sent to the secure OCR service for recognition; otherwise it is processed locally on your device.',
   'scan.pickFailed': 'The image could not be opened. Choose another image.',
   'scan.preview': 'Selected image',
   'scan.cameraNotReady': 'The camera is starting…',
