@@ -24,7 +24,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isValidIPv4(value: string): boolean {
   const parts = value.split(".");
   return parts.length === 4 && parts.every((part) =>
-    /^(0|[1-9]\\d{0,2})$/.test(part) && Number(part) <= 255,
+    /^(0|[1-9]\d{0,2})$/.test(part) && Number(part) <= 255,
   );
 }
 
@@ -114,6 +114,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
           ],
         }],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "ipv4_ocr_result",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                addresses: {
+                  type: "array",
+                  items: { type: "string", pattern: "^(0|[1-9]\\d{0,2})(\\.(0|[1-9]\\d{0,2})){3}$" },
+                },
+              },
+              required: ["addresses"],
+              additionalProperties: false,
+            },
+          },
+        },
       }),
       signal: AbortSignal.timeout(25_000),
     });
@@ -135,12 +153,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(502).json({ error: "OCR provider returned an invalid response" });
     }
 
-    const addresses = parsed.addresses.filter(
+    const addresses = [...new Set(parsed.addresses.filter(
       (value): value is string =>
         typeof value === "string" &&
         value.length <= 15 &&
-        /^(?:\d{1,3}\.){3}\d{1,3}$/.test(value),
-    );
+        isValidIPv4(value),
+    ))].slice(0, 20);
 
     return res.status(200).json({ addresses });
   } catch {
