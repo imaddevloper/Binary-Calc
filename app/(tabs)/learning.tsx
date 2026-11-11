@@ -5,16 +5,17 @@ import { Screen } from '../../src/components/Screen';
 import { Segmented } from '../../src/components/Segmented';
 import { LessonsList } from '../../src/features/learning/LessonsList';
 import { ChallengesPanel } from '../../src/features/challenges/ChallengesPanel';
+import { OsiAcademy } from '../../src/features/learning/OsiAcademy';
 import { useI18n } from '../../src/hooks/useI18n';
 
-type Tab = 'lessons' | 'challenges';
+type Tab = 'lessons' | 'challenges' | 'osi';
 
 export default function LearningScreen() {
   const { t } = useI18n();
   const params = useLocalSearchParams<{ tab?: string }>();
   const router = useRouter();
   const [localTab, setLocalTab] = useState<Tab>('lessons');
-  const tab: Tab = params.tab === 'lessons' || params.tab === 'challenges' ? params.tab : localTab;
+  const tab: Tab = params.tab === 'lessons' || params.tab === 'challenges' || params.tab === 'osi' ? params.tab : localTab;
   const changeTab = (next: Tab) => {
     setLocalTab(next);
     if (params.tab !== undefined) router.setParams({ tab: undefined });
@@ -29,9 +30,10 @@ export default function LearningScreen() {
         options={[
           { value: 'lessons', label: t('learn.tab.lessons') },
           { value: 'challenges', label: t('learn.tab.challenges') },
+          { value: 'osi', label: t('learn.tab.osi') },
         ]}
       />
-      {tab === 'lessons' ? <LessonsList /> : <ChallengesPanel />}
+      {tab === 'lessons' ? <LessonsList /> : tab === 'challenges' ? <ChallengesPanel /> : <OsiAcademy />}
     </Screen>
   );
 }
