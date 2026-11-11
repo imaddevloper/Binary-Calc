@@ -45,6 +45,6 @@ export function useI18n(): I18nApi {
  * Use it at the root and inside every Modal (modals render in a separate tree).
  */
 export function DirectionView({ children, style }: { children: React.ReactNode; style?: React.ComponentProps<typeof View>['style'] }) {
-  const { isRTL } = useI18n();
-  return <View style={[{ flex: 1, direction: isRTL ? 'rtl' : 'ltr' }, style]}>{children}</View>;
+  // Keep the app's writing/layout direction stable when the display language changes.
+  return <View style={[{ flex: 1, direction: 'ltr' }, style]}>{children}</View>;
 }
