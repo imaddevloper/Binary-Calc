@@ -21,8 +21,8 @@ export const LESSON_TRY: Record<number, { type: ChallengeType; difficulty: Diffi
   11: { type: 'bin2hex', difficulty: 'easy' },
   12: { type: 'octet2bin', difficulty: 'medium' },
   13: { type: 'invalidIp', difficulty: 'easy' },
-  14: { type: 'octet2bin', difficulty: 'medium' },
-  15: { type: 'bin2dec', difficulty: 'medium' },
-  16: { type: 'invalidIp', difficulty: 'medium' },
-  17: { type: 'invalidIp', difficulty: 'hard' },
+  14: { type: 'maskPrefix', difficulty: 'medium' },
+  15: { type: 'cidrHostBits', difficulty: 'medium' },
+  16: { type: 'privateIp', difficulty: 'medium' },
+  17: { type: 'broadcastOctet', difficulty: 'hard' },
 };
