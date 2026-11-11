@@ -82,6 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     typeof imageBase64 !== "string" ||
     imageBase64.length === 0 ||
     imageBase64.length > MAX_IMAGE_BASE64_LENGTH ||
+    imageBase64.length % 4 !== 0 ||
     !/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64) ||
     typeof mimeType !== "string" ||
     !ALLOWED_MIME_TYPES.has(mimeType)
