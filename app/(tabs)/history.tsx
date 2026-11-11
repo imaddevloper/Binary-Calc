@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,9 +49,6 @@ export default function HistoryScreen() {
     () => (open && items ? items.find((e) => String(e.id) === open) ?? null : null),
     [open, items],
   );
-  useEffect(() => {
-    if (open && items) router.setParams({ open: undefined });
-  }, [open, items, router]);
   const activeDetail = detail ?? routeDetail;
 
   const shown = useMemo(() => (items ?? []).filter((e) => filter === 'all' || e.kind === filter), [items, filter]);
