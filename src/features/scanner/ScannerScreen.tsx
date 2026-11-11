@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Linking, StyleSheet, View } from 'react-native';
+import { Alert, Image, Linking, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -57,7 +57,26 @@ export function ScannerScreen() {
     setStage('processing');
     setMessage(null);
     let remoteImage: { base64: string; mimeType: 'image/jpeg' } | undefined;
-    if (isOnlineOcrConfigured()) {
+    const allowOnline = isOnlineOcrConfigured()
+      ? await new Promise<boolean>((resolve) => {
+          let settled = false;
+          const finish = (value: boolean) => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+          };
+          Alert.alert(
+            t('scan.onlineTitle'),
+            t('scan.onlineBody'),
+            [
+              { text: t('scan.localOption'), style: 'cancel', onPress: () => finish(false) },
+              { text: t('scan.onlineOption'), onPress: () => finish(true) },
+            ],
+            { cancelable: true, onDismiss: () => finish(false) },
+          );
+        })
+      : false;
+    if (allowOnline) {
       try {
         const optimized = await ImageManipulator.manipulate(imageUri)
           .resize({ width: 1600 })
@@ -96,7 +115,7 @@ export function ScannerScreen() {
       setText('');
     }
     setStage('review');
-  }, [router]);
+  }, [router, t]);
 
   const pickFromGallery = useCallback(async () => {
     setFromGallery(true);
