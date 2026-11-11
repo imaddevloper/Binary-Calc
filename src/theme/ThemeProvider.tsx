@@ -20,7 +20,7 @@ interface ThemeApi {
 }
 
 const ThemeContext = createContext<ThemeApi | null>(null);
-export const REVEAL_DURATION = 680;
+export const REVEAL_DURATION = 3200;
 
 interface RevealState {
   from: string;
@@ -63,14 +63,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     void (async () => {
       try {
-        // Capture the current screen before changing the palette. PNG avoids compression
-        // artifacts around text and thin borders during the circular transition.
         const shot = { format: 'png' as const, result: 'tmpfile' as const };
         const offset = await measure(rootRef);
         const rel = { x: origin.x - offset.x, y: origin.y - offset.y };
         const from = await captureRef(rootRef, shot);
 
-        // Mount the old frame first, then switch the live UI underneath it.
+        // Keep the captured old palette visible while the live tree switches underneath.
         setReveal({ from, to: from, origin: rel });
         await nextFrame();
         setPref('theme', next);
@@ -126,9 +124,9 @@ function ThemeReveal({ state, width, height, onFinish }: { state: RevealState; w
     radius.value = 0;
     radius.value = withTiming(maxRadius, {
       duration: REVEAL_DURATION,
-      easing: Easing.bezier(0.22, 1, 0.36, 1),
+      easing: Easing.inOut(Easing.cubic),
     });
-    const timer = setTimeout(onFinish, REVEAL_DURATION + 80);
+    const timer = setTimeout(onFinish, REVEAL_DURATION + 100);
     return () => clearTimeout(timer);
   }, [ready, maxRadius, radius, onFinish]);
 
