@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -10,10 +10,11 @@ import { PrefsProvider } from '../src/hooks/usePrefs';
 import { DirectionView, I18nProvider } from '../src/hooks/useI18n';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
 import { ToastProvider } from '../src/components/Toast';
+import { Intro } from '../src/components/Intro';
 import { loadPrefs, savePref } from '../src/storage/prefs';
 import type { Prefs } from '../src/storage/prefs';
 
-// Keep the single native splash visible until fonts and saved preferences are ready.
+// Keep the native splash visible until fonts and saved preferences are ready.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function Navigator() {
@@ -36,6 +37,8 @@ function Navigator() {
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({ Cairo_400Regular, Cairo_600SemiBold, Cairo_700Bold, JetBrainsMono_500Medium, JetBrainsMono_700Bold });
   const [prefs, setPrefs] = useState<Prefs | null>(null);
+  const [introVisible, setIntroVisible] = useState(true);
+  const finishIntro = useCallback(() => setIntroVisible(false), []);
 
   useEffect(() => {
     let alive = true;
@@ -69,6 +72,7 @@ export default function RootLayout() {
             <ToastProvider>
               <View style={styles.fill}>
                 <Navigator />
+                {introVisible ? <Intro onFinish={finishIntro} /> : null}
               </View>
             </ToastProvider>
           </ThemeProvider>
