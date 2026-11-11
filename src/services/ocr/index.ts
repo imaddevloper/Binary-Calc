@@ -67,7 +67,7 @@ async function recognizeOnline(image: RemoteOcrImage): Promise<OcrCandidate[] | 
     const response = await fetch(OCR_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64: image.base64, mimeType: image.mimeType }),
+      body: JSON.stringify({ imageBase64: image.base64, mimeType: image.mimeType }),\n      signal: AbortSignal.timeout(28_000),
     });
     if (!response.ok) return null;
 
