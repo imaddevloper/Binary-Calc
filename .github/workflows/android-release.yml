@@ -22,7 +22,10 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout repository
@@ -40,14 +43,27 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Configure Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n 1)"
+          fi
+          if [[ -z "${SDKMANAGER:-}" || ! -x "$SDKMANAGER" ]]; then
+            echo "Android SDK command-line tools (sdkmanager) were not found."
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate Expo configuration
+        run: npx expo config --type public
 
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install --clean
@@ -63,7 +79,11 @@ jobs:
         run: |
           set -euo pipefail
           APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
-          test -s "$APK_PATH"
+          if [[ ! -s "$APK_PATH" ]]; then
+            echo "Expected APK was not created: $APK_PATH"
+            find android/app/build/outputs -maxdepth 5 -type f -name "*.apk" -print 2>/dev/null || true
+            exit 1
+          fi
           mkdir -p release
           cp "$APK_PATH" "release/Binary-Calculator-${GITHUB_REF_NAME}.apk"
           cp "$APK_PATH" "release/Binary-Calculator.apk"
