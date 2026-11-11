@@ -9,7 +9,7 @@ type VercelResponse = {
   setHeader(name: string, value: string): void;
 };
 
-const MAX_IMAGE_BASE64_LENGTH = 12 * 1024 * 1024;
+const MAX_IMAGE_BASE64_LENGTH = 4 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
