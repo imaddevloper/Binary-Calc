@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { Image, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
-  Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming,
+  Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming,
 } from 'react-native-reanimated';
 import { AppText } from './Text';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -9,11 +9,10 @@ import { useI18n } from '../hooks/useI18n';
 import { fonts } from '../theme/typography';
 
 /** Total length of the branded intro (ms). */
-export const INTRO_DURATION = 6000;
+export const INTRO_DURATION = 5000;
 
 const BG = '#0B0B0F';
 const RED = '#D91E2B';
-const ICON = 168;
 
 const DIGITS: { t: string; x: number; y: number; s: number }[] = [
   { t: '0', x: 0.08, y: 0.1, s: 30 }, { t: '1', x: 0.82, y: 0.08, s: 26 }, { t: '0101', x: 0.62, y: 0.2, s: 20 },
@@ -23,9 +22,8 @@ const DIGITS: { t: string; x: number; y: number; s: number }[] = [
 ];
 
 /**
- * In-app branded intro (the native Android splash can't run a 6 s custom animation, so the native splash
- * hands over to this screen). Timeline: 0–0.5 s background, 0.5–1.5 s icon, 1.5–2.5 s name,
- * 2.5–5.5 s progress line, 5.5–6.0 s fade into the app. Reduced motion: plain fades, no scaling/sliding.
+ * Branded hand-off after Android's native splash: animated app name and loading line.
+ * The logo is intentionally not repeated here to avoid showing it twice at launch.
  */
 export function Intro({ onFinish }: { onFinish: () => void }) {
   const { height, width } = useWindowDimensions();
@@ -33,43 +31,35 @@ export function Intro({ onFinish }: { onFinish: () => void }) {
   const { t } = useI18n();
 
   const bg = useSharedValue(0);
-  const icon = useSharedValue(0);
   const title = useSharedValue(0);
   const progress = useSharedValue(0);
   const exit = useSharedValue(1);
 
   useEffect(() => {
     const ease = Easing.out(Easing.cubic);
-    bg.value = withTiming(1, { duration: 500 });
-    icon.value = withDelay(500, withTiming(1, { duration: 1000, easing: ease }));
-    title.value = withDelay(1500, withTiming(1, { duration: 1000, easing: ease }));
-    progress.value = withDelay(2500, withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.quad) }));
-    exit.value = withDelay(5500, withTiming(0, { duration: 500 }));
+    bg.value = withTiming(1, { duration: 350 });
+    title.value = withDelay(350, withTiming(1, { duration: 900, easing: ease }));
+    progress.value = withDelay(1300, withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.quad) }));
+    exit.value = withDelay(4600, withTiming(0, { duration: 400 }));
     const id = setTimeout(onFinish, INTRO_DURATION);
     return () => clearTimeout(id);
-  }, [bg, icon, title, progress, exit, onFinish]);
+  }, [bg, title, progress, exit, onFinish]);
 
-  const rootStyle = useAnimatedStyle(() => ({ opacity: exit.value }));
   const bgStyle = useAnimatedStyle(() => ({ opacity: bg.value }));
-  const iconStyle = useAnimatedStyle(() => ({
-    opacity: icon.value,
-    transform: reduced ? [] : [{ scale: 0.82 + 0.18 * icon.value }],
-  }));
   const titleStyle = useAnimatedStyle(() => ({
     opacity: title.value,
-    transform: reduced ? [] : [{ translateY: (1 - title.value) * 12 }],
+    transform: reduced ? [] : [{ translateY: (1 - title.value) * 16 }],
   }));
+  const rootStyle = useAnimatedStyle(() => ({ opacity: exit.value }));
   const barStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
-  const barW = Math.min(220, width * 0.55);
+  const barW = Math.min(240, width * 0.64);
 
   return (
     <Animated.View style={[StyleSheet.absoluteFill, styles.root, rootStyle]} accessibilityLabel={t('app.name')} accessibilityRole="progressbar">
       <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} pointerEvents="none">
-        {/* faint diagonal stripes */}
         <View style={[styles.stripe, { top: height * 0.12, left: -width * 0.2, opacity: 0.1 }]} />
         <View style={[styles.stripe, { top: height * 0.62, left: -width * 0.4, opacity: 0.07, height: 26 }]} />
-        {/* faint circuit lines */}
         <View style={[styles.line, { top: height * 0.17, left: width * 0.06, width: width * 0.26 }]} />
         <View style={[styles.dot, { top: height * 0.17 - 4, left: width * 0.06 - 4 }]} />
         <View style={[styles.line, { top: height * 0.84, right: width * 0.05, width: width * 0.3 }]} />
@@ -84,18 +74,11 @@ export function Intro({ onFinish }: { onFinish: () => void }) {
         ))}
       </Animated.View>
 
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={styles.center}>
-          <Animated.View style={iconStyle}>
-            <Image source={require('../../assets/icon.png')} style={styles.icon} resizeMode="contain" accessibilityIgnoresInvertColors />
-          </Animated.View>
-        </View>
-        <Animated.View style={[styles.titleWrap, { top: height / 2 + ICON / 2 + 22 }, titleStyle]}>
-          <AppText variant="title" style={styles.title} align="center">{t('app.name')}</AppText>
-        </Animated.View>
-        <View style={[styles.barTrack, { top: height / 2 + ICON / 2 + 88, width: barW, left: (width - barW) / 2 }]}>
-          <Animated.View style={[styles.barFill, barStyle]} />
-        </View>
+      <Animated.View style={[styles.titleWrap, { top: height / 2 - 34 }, titleStyle]}>
+        <AppText variant="title" style={styles.title} align="center">{t('app.name')}</AppText>
+      </Animated.View>
+      <View style={[styles.barTrack, { top: height / 2 + 28, width: barW, left: (width - barW) / 2 }]}>
+        <Animated.View style={[styles.barFill, barStyle]} />
       </View>
     </Animated.View>
   );
@@ -103,10 +86,8 @@ export function Intro({ onFinish }: { onFinish: () => void }) {
 
 const styles = StyleSheet.create({
   root: { backgroundColor: BG, zIndex: 100, elevation: 100 },
-  center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  icon: { width: ICON, height: ICON, borderRadius: 38 },
   titleWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  title: { color: '#FFFFFF', letterSpacing: 0.5 },
+  title: { color: '#FFFFFF', letterSpacing: 0.8 },
   barTrack: { position: 'absolute', height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden' },
   barFill: { height: 3, backgroundColor: RED, borderRadius: 2 },
   stripe: { position: 'absolute', width: '160%', height: 54, backgroundColor: RED, transform: [{ rotate: '-24deg' }] },
