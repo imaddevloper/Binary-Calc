@@ -44,14 +44,15 @@ export default function HistoryScreen() {
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
-  // Opened from the Home "recent activity" list.
+  // Resolve route-driven detail directly from the loaded history; the effect only clears the consumed route param.
+  const routeDetail = useMemo(
+    () => (open && items ? items.find((e) => String(e.id) === open) ?? null : null),
+    [open, items],
+  );
   useEffect(() => {
-    if (open && items) {
-      const found = items.find((e) => String(e.id) === open);
-      if (found) setDetail(found);
-      router.setParams({ open: undefined });
-    }
+    if (open && items) router.setParams({ open: undefined });
   }, [open, items, router]);
+  const activeDetail = detail ?? routeDetail;
 
   const shown = useMemo(() => (items ?? []).filter((e) => filter === 'all' || e.kind === filter), [items, filter]);
 
@@ -121,7 +122,7 @@ export default function HistoryScreen() {
         />
       )}
 
-      <HistoryDetail entry={detail} onClose={() => setDetail(null)} onDelete={(id) => setConfirmOne(items?.find((e) => e.id === id) ?? null)} />
+      <HistoryDetail entry={activeDetail} onClose={() => { setDetail(null); if (open) router.setParams({ open: undefined }); }} onDelete={(id) => setConfirmOne(items?.find((e) => e.id === id) ?? null)} />
       <ConfirmationDialog
         visible={confirmOne !== null}
         title={t('hist.delete')}
