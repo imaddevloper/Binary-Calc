@@ -140,13 +140,13 @@ export function ScannerScreen() {
   };
 
   // Opened via "Import image": go straight to the picker once.
+  // pickFromGallery is intentionally invoked once per route entry; pickedOnce prevents duplicate launches.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (source === 'gallery' && !pickedOnce.current) {
       pickedOnce.current = true;
       void pickFromGallery();
     }
-  // pickFromGallery is intentionally invoked once per route entry; pickedOnce prevents duplicate launches.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source]);
 
   const capture = async () => {
