@@ -15,10 +15,16 @@ export type ChallengeType =
   | 'hex2dec'
   | 'bin2hex'
   | 'octet2bin'
-  | 'invalidIp'\n  | 'cidrHostBits'\n  | 'maskPrefix'\n  | 'privateIp'\n  | 'networkOctet'\n  | 'broadcastOctet';
+  | 'invalidIp'
+  | 'cidrHostBits'
+  | 'maskPrefix'
+  | 'privateIp'
+  | 'networkOctet'
+  | 'broadcastOctet';
 
 export const CHALLENGE_TYPES: ChallengeType[] = [
-  'dec2bin', 'bin2dec', 'dec2hex', 'hex2dec', 'bin2hex', 'octet2bin', 'invalidIp',\n  'cidrHostBits', 'maskPrefix', 'privateIp', 'networkOctet', 'broadcastOctet',
+  'dec2bin', 'bin2dec', 'dec2hex', 'hex2dec', 'bin2hex', 'octet2bin', 'invalidIp',
+  'cidrHostBits', 'maskPrefix', 'privateIp', 'networkOctet', 'broadcastOctet',
 ];
 
 export interface Challenge {
