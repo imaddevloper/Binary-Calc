@@ -52,8 +52,7 @@ export function TabBar({ state }: TabBarProps) {
             onPress={() => {
               if (focused) return;
               const pathname = route.name === 'index' ? '/' : `/${route.name}`;
-              // Do not call navigation.emit()/navigate(); those native objects caused
-              // crashes on some installed React Native / Expo Router combinations.
+              // Use Expo Router's public path API for consistent tab navigation.
               router.navigate(pathname as never);
             }}
             style={styles.item}
