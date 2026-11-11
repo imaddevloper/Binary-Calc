@@ -1,14 +1,8 @@
 name: Android Release APK
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*"
-  pull_request:
-    branches:
-      - main
+  # Automatic builds are temporarily disabled during maintenance.
+  # Run manually from the Actions tab when explicitly requested.
   workflow_dispatch:
 
 permissions:
