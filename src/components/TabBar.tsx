@@ -10,16 +10,8 @@ import { spacing, TOUCH } from '../theme/spacing';
 import { useI18n } from '../hooks/useI18n';
 import type { TKey } from '../i18n';
 
-/**
- * Expo Router's tab navigation object can differ between native versions.
- * The tab bar only needs navigate(); emitting tabPress is optional.
- */
 export interface TabBarProps {
   state: { index: number; routes: { key: string; name: string; params?: object }[] };
-  navigation?: {
-    emit?: (e: { type: 'tabPress'; target: string; canPreventDefault: boolean }) => { defaultPrevented?: boolean };
-    navigate?: (name: string, params?: object) => void;
-  };
 }
 
 const TABS: Record<string, { icon: IconName; label: TKey }> = {
@@ -30,8 +22,11 @@ const TABS: Record<string, { icon: IconName; label: TKey }> = {
   history: { icon: 'time', label: 'nav.history' },
 };
 
-/** Custom tab bar with localized labels and RTL-aware layout direction. */
-export function TabBar({ state, navigation }: TabBarProps) {
+/**
+ * Custom tab bar. Route changes go through Expo Router directly so this component
+ * never depends on React Navigation's optional event emitter or navigation object.
+ */
+export function TabBar({ state }: TabBarProps) {
   const { colors } = useTheme();
   const router = useRouter();
   const { t } = useI18n();
@@ -56,17 +51,10 @@ export function TabBar({ state, navigation }: TabBarProps) {
             accessibilityState={{ selected: focused }}
             onPress={() => {
               if (focused) return;
-              // Some Expo Router/native navigation versions omit emit on the tab navigator.
-              // Navigation must still work; dispatch the optional event only when available.
-              const event = navigation?.emit?.({ type: 'tabPress', target: route.key, canPreventDefault: true });
-              if (event?.defaultPrevented) return;
-              if (navigation?.navigate) {
-                navigation.navigate(route.name, route.params);
-              } else {
-                // Defensive fallback for native navigator versions that omit the tab navigation prop.
-                const pathname = route.name === 'index' ? '/' : `/${route.name}`;
-                router.navigate({ pathname, params: route.params } as never);
-              }
+              const pathname = route.name === 'index' ? '/' : `/${route.name}`;
+              // Do not call navigation.emit()/navigate(); those native objects caused
+              // crashes on some installed React Native / Expo Router combinations.
+              router.navigate(pathname as never);
             }}
             style={styles.item}
           >
