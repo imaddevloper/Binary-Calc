@@ -33,7 +33,7 @@ export function ScannerFrame() {
 
 const C = '#FF4D5A';
 const styles = StyleSheet.create({
-  wrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', direction: 'ltr' },
+  wrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', direction: 'ltr' },
   frame: { width: '84%', height: FRAME_H },
   corner: { position: 'absolute', width: 26, height: 26, borderColor: C },
   tl: { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 8 },
