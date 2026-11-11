@@ -29,7 +29,7 @@ interface RevealState {
   fromName: ThemeName;
 }
 
-function measure(ref: React.RefObject<View | null>): Promise<{ x: number; y: number }> {
+function measure(ref: React.RefObject<React.ComponentRef<typeof View> | null>): Promise<{ x: number; y: number }> {
   return new Promise((resolve) => {
     if (!ref.current) return resolve({ x: 0, y: 0 });
     ref.current.measureInWindow((x, y) => resolve({ x, y }));
@@ -42,7 +42,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { prefs, setPref } = usePrefs();
   const scheme = useColorScheme();
   const reduced = useReducedMotion();
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<React.ComponentRef<typeof View>>(null);
   const busy = useRef(false);
   const transitionStarted = useRef(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
