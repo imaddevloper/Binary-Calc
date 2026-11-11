@@ -32,7 +32,7 @@ function sourceFor(type: Challenge['type']): Base | null {
   switch (type) {
     case 'dec2bin': case 'dec2hex': case 'octet2bin': return 10;
     case 'bin2dec': case 'bin2hex': return 2;
-    case 'hex2dec': return 16;
+    case 'hex2dec': return 16;\n    case 'cidrHostBits': case 'maskPrefix': case 'networkOctet': case 'broadcastOctet': return null;
     default: return null;
   }
 }
@@ -74,14 +74,19 @@ export function ChallengeQuestion({ challenge, mode, onAnswered, onNext, nextLab
     ? [{ value: 'valid', label: t('chal.valid') }, { value: 'invalid', label: t('chal.invalid') }]
     : challenge.choices.map((c) => ({ value: c, label: c }));
 
-  const answerLabel = yesNo ? t(challenge.answer === 'valid' ? 'chal.valid' : 'chal.invalid') : challenge.answer;
+  const answerLabel = yesNo\n    ? challenge.type === 'privateIp'\n      ? t(challenge.answer === 'yes' ? 'chal.yes' : 'chal.no')\n      : t(challenge.answer === 'valid' ? 'chal.valid' : 'chal.invalid')\n    : challenge.answer;
   const src = sourceFor(challenge.type);
 
   const explanation = (() => {
     if (yesNo) {
+      if (challenge.type === 'privateIp') return <AppText variant="body">{t('chal.explain.privateIp')}</AppText>;
       const p = parseIPv4(challenge.prompt);
       return p.ok ? <AppText variant="body">{t('ipv4.valid')}</AppText> : <AppText variant="body">{ipv4Error(p.error, p.octetIndex, t)}</AppText>;
     }
+    if (challenge.type === 'cidrHostBits') return <AppText variant="body">{tm('chal.explain.cidrHostBits', { v: challenge.prompt, a: challenge.answer })}</AppText>;
+    if (challenge.type === 'maskPrefix') return <AppText variant="body">{tm('chal.explain.maskPrefix', { v: challenge.prompt, a: challenge.answer })}</AppText>;
+    if (challenge.type === 'networkOctet') return <AppText variant="body">{tm('chal.explain.networkOctet', { v: challenge.prompt, a: challenge.answer })}</AppText>;
+    if (challenge.type === 'broadcastOctet') return <AppText variant="body">{tm('chal.explain.broadcastOctet', { v: challenge.prompt, a: challenge.answer })}</AppText>;
     if (src === null) return null;
     try {
       const normalized = challenge.prompt.replace(/^0x/i, '');
