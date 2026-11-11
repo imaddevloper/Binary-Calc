@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Image, StyleSheet, useColorScheme, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { captureRef } from 'react-native-view-shot';
 import { palettes } from './colors';
@@ -51,6 +52,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const mode = prefs.theme;
   const name: ThemeName = mode === 'system' ? (scheme === 'dark' ? 'dark' : 'light') : mode;
   const setMode = useCallback((m: ThemeMode) => setPref('theme', m), [setPref]);
+
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(palettes[name].background).catch(() => {});
+  }, [name]);
 
   const toggleTheme = useCallback((origin: Point) => {
     if (busy.current) return;
