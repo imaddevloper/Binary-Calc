@@ -117,7 +117,7 @@ export function ScannerScreen() {
     setStage('review');
   }, [router, t]);
 
-  const pickFromGallery = useCallback(async () => {
+  const pickFromGallery = async () => {
     setFromGallery(true);
     try {
       // The system photo picker needs no storage permission.
@@ -137,7 +137,7 @@ export function ScannerScreen() {
       setMessage(t('scan.pickFailed'));
       setStage('review');
     }
-  }, [permission?.granted, runOcr, source, t, uri]);
+  };
 
   // Opened via "Import image": go straight to the picker once.
   useEffect(() => {
@@ -145,7 +145,9 @@ export function ScannerScreen() {
       pickedOnce.current = true;
       void pickFromGallery();
     }
-  }, [source, pickFromGallery]);
+  // pickFromGallery is intentionally invoked once per route entry; pickedOnce prevents duplicate launches.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source]);
 
   const capture = async () => {
     if (!cameraRef.current || !cameraReady) { setMessage(t('scan.cameraNotReady')); return; }
