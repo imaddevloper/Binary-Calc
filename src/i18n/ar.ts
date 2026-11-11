@@ -68,7 +68,7 @@ export const ar: Record<TKey, string> = {
   'home.f.scan': 'مسح IP من صورة',
   'home.f.scanDesc': 'الكاميرا أو المعرض، على الجهاز',
   'home.f.learn': 'التعلّم والتحديات',
-  'home.f.learnDesc': '13 درسًا وتدريب',
+  'home.f.learnDesc': '17 درسًا وتدريب',
   'home.f.history': 'السجل',
   'home.f.historyDesc': 'يُحفظ على هذا الجهاز فقط',
 
