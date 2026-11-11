@@ -12,10 +12,20 @@ type VercelResponse = {
 
 const MAX_IMAGE_BASE64_LENGTH = 4 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+// Best-effort per-instance throttling. Use Vercel Firewall or a shared store for
+// a hard global limit across serverless instances.
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
+const MAX_TRACKED_CLIENTS = 5_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isValidIPv4(value: string): boolean {
+  const parts = value.split(".");
+  return parts.length === 4 && parts.every((part) =>
+    /^(0|[1-9]\\d{0,2})$/.test(part) && Number(part) <= 255,
+  );
 }
 
 function extractOutputText(payload: unknown): string {
@@ -46,6 +56,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const forwardedFor = req.headers?.["x-forwarded-for"];
   const clientIp = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)?.split(",")[0]?.trim() || "unknown";
   const now = Date.now();
+  // Drop expired entries periodically and bound memory use on long-lived instances.
+  if (requestBuckets.size > MAX_TRACKED_CLIENTS) {
+    for (const [key, entry] of requestBuckets) {
+      if (entry.resetAt <= now) requestBuckets.delete(key);
+    }
+    if (requestBuckets.size > MAX_TRACKED_CLIENTS) {
+      const oldestKey = requestBuckets.keys().next().value;
+      if (oldestKey) requestBuckets.delete(oldestKey);
+    }
+  }
   const bucket = requestBuckets.get(clientIp);
   if (bucket && bucket.resetAt > now && bucket.count >= 10) {
     return res.status(429).json({ error: "Too many requests" });
