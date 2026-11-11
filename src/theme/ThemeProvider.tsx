@@ -20,12 +20,13 @@ interface ThemeApi {
 }
 
 const ThemeContext = createContext<ThemeApi | null>(null);
-export const REVEAL_DURATION = 3200;
+export const REVEAL_DURATION = 2500;
 
 interface RevealState {
   from: string;
-  to: string;
+  to?: string;
   origin: Point;
+  fromName: ThemeName;
 }
 
 function measure(ref: React.RefObject<View | null>): Promise<{ x: number; y: number }> {
@@ -43,6 +44,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const reduced = useReducedMotion();
   const rootRef = useRef<View>(null);
   const busy = useRef(false);
+  const transitionStarted = useRef(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [reveal, setReveal] = useState<RevealState | null>(null);
 
@@ -53,6 +55,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = useCallback((origin: Point) => {
     if (busy.current) return;
     busy.current = true;
+    transitionStarted.current = false;
     const next: ThemeName = name === 'dark' ? 'light' : 'dark';
 
     if (reduced || !rootRef.current || size.w === 0 || size.h === 0) {
@@ -65,18 +68,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       try {
         const shot = { format: 'png' as const, result: 'tmpfile' as const };
         const offset = await measure(rootRef);
-        const rel = { x: origin.x - offset.x, y: origin.y - offset.y };
+        const rel = {
+          x: Math.max(0, Math.min(size.w, origin.x - offset.x)),
+          y: Math.max(0, Math.min(size.h, origin.y - offset.y)),
+        };
         const from = await captureRef(rootRef, shot);
-
-        // Keep the captured old palette visible while the live tree switches underneath.
-        setReveal({ from, to: from, origin: rel });
-        await nextFrame();
-        setPref('theme', next);
-        await nextFrame();
-        await nextFrame();
-
-        const to = await captureRef(rootRef, shot);
-        setReveal({ from, to, origin: rel });
+        // Keep the old screen visible until its captured image has actually loaded.
+        setReveal({ from, origin: rel, fromName: name });
       } catch {
         setReveal(null);
         setPref('theme', next);
@@ -85,9 +83,31 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [name, reduced, size.w, size.h, setPref]);
 
+  const onBaseImageReady = useCallback(() => {
+    if (transitionStarted.current || !busy.current) return;
+    transitionStarted.current = true;
+    void (async () => {
+      try {
+        const next: ThemeName = name === 'dark' ? 'light' : 'dark';
+        setPref('theme', next);
+        // Let React Native commit the new palette before capturing it.
+        await nextFrame();
+        await nextFrame();
+        await nextFrame();
+        if (!rootRef.current) throw new Error('Theme root is unavailable');
+        const to = await captureRef(rootRef, { format: 'png', result: 'tmpfile' });
+        setReveal((current) => current ? { ...current, to } : null);
+      } catch {
+        setReveal(null);
+        busy.current = false;
+      }
+    })();
+  }, [name, setPref]);
+
   const finish = useCallback(() => {
     setReveal(null);
     busy.current = false;
+    transitionStarted.current = false;
   }, []);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
@@ -106,29 +126,55 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         <View ref={rootRef} collapsable={false} style={[styles.fill, { backgroundColor: palettes[name].background }]}>
           {children}
         </View>
-        {reveal && size.w > 0 ? <ThemeReveal state={reveal} width={size.w} height={size.h} onFinish={finish} /> : null}
-        <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
+        {reveal && size.w > 0 ? (
+          <ThemeReveal
+            key={reveal.from}
+            state={reveal}
+            width={size.w}
+            height={size.h}
+            onBaseReady={onBaseImageReady}
+            onFinish={finish}
+          />
+        ) : null}
+        {/* Keep the status bar on the captured palette until the reveal completes. */}
+        <StatusBar style={(reveal ? reveal.fromName : name) === 'dark' ? 'light' : 'dark'} />
       </View>
     </ThemeContext.Provider>
   );
 }
 
-function ThemeReveal({ state, width, height, onFinish }: { state: RevealState; width: number; height: number; onFinish: () => void }) {
+function ThemeReveal({
+  state,
+  width,
+  height,
+  onBaseReady,
+  onFinish,
+}: {
+  state: RevealState;
+  width: number;
+  height: number;
+  onBaseReady: () => void;
+  onFinish: () => void;
+}) {
   const { origin } = state;
-  const ready = state.to !== state.from;
   const radius = useSharedValue(0);
-  const maxRadius = Math.hypot(Math.max(origin.x, width - origin.x), Math.max(origin.y, height - origin.y)) + 4;
+  const [targetLoaded, setTargetLoaded] = useState(false);
+  const baseReady = useRef(false);
+  const maxRadius = Math.hypot(
+    Math.max(origin.x, width - origin.x),
+    Math.max(origin.y, height - origin.y),
+  ) + 2;
 
   useEffect(() => {
-    if (!ready) return;
+    if (!state.to || !targetLoaded) return;
     radius.value = 0;
     radius.value = withTiming(maxRadius, {
       duration: REVEAL_DURATION,
       easing: Easing.inOut(Easing.cubic),
     });
-    const timer = setTimeout(onFinish, REVEAL_DURATION + 100);
+    const timer = setTimeout(onFinish, REVEAL_DURATION + 80);
     return () => clearTimeout(timer);
-  }, [ready, maxRadius, radius, onFinish]);
+  }, [state.to, targetLoaded, maxRadius, radius, onFinish]);
 
   const circleStyle = useAnimatedStyle(() => ({
     position: 'absolute',
@@ -148,11 +194,34 @@ function ThemeReveal({ state, width, height, onFinish }: { state: RevealState; w
   }));
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="auto" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Image source={{ uri: state.from }} style={StyleSheet.absoluteFill} resizeMode="stretch" fadeDuration={0} />
-      {ready ? (
+    <View
+      style={[StyleSheet.absoluteFill, { backgroundColor: palettes[state.fromName].background }]}
+      pointerEvents="auto"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <Image
+        source={{ uri: state.from }}
+        style={StyleSheet.absoluteFill}
+        resizeMode="stretch"
+        fadeDuration={0}
+        onLoad={() => {
+          if (baseReady.current) return;
+          baseReady.current = true;
+          onBaseReady();
+        }}
+        onError={onFinish}
+      />
+      {state.to ? (
         <Animated.View style={circleStyle}>
-          <Animated.Image source={{ uri: state.to }} style={imageStyle} resizeMode="stretch" fadeDuration={0} />
+          <Animated.Image
+            source={{ uri: state.to }}
+            style={imageStyle}
+            resizeMode="stretch"
+            fadeDuration={0}
+            onLoad={() => setTargetLoaded(true)}
+            onError={onFinish}
+          />
         </Animated.View>
       ) : null}
     </View>
