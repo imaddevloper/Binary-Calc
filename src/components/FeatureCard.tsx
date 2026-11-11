@@ -7,6 +7,8 @@ import type { IconName } from './Icon';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, spacing } from '../theme/spacing';
 
+/* eslint-disable react-hooks/immutability -- Reanimated shared-value writes are intentional UI-thread animation updates. */
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface Props {
@@ -27,10 +29,7 @@ export function FeatureCard({ icon, title, description, onPress, featured }: Pro
       accessibilityRole="button"
       accessibilityLabel={`${title}. ${description}`}
       onPress={onPress}
-      // Reanimated shared-value writes are intentional UI-thread animation updates.
-      // eslint-disable-next-line react-hooks/immutability
       onPressIn={() => { s.value = withTiming(0.98, { duration: 90 }); }}
-      // eslint-disable-next-line react-hooks/immutability
       onPressOut={() => { s.value = withTiming(1, { duration: 120 }); }}
       style={[
         styles.card,
