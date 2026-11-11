@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from './Text';
@@ -15,9 +16,9 @@ import type { TKey } from '../i18n';
  */
 export interface TabBarProps {
   state: { index: number; routes: { key: string; name: string; params?: object }[] };
-  navigation: {
+  navigation?: {
     emit?: (e: { type: 'tabPress'; target: string; canPreventDefault: boolean }) => { defaultPrevented?: boolean };
-    navigate: (name: string, params?: object) => void;
+    navigate?: (name: string, params?: object) => void;
   };
 }
 
@@ -32,6 +33,7 @@ const TABS: Record<string, { icon: IconName; label: TKey }> = {
 /** Custom tab bar with localized labels and RTL-aware layout direction. */
 export function TabBar({ state, navigation }: TabBarProps) {
   const { colors } = useTheme();
+  const router = useRouter();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
 
@@ -56,8 +58,15 @@ export function TabBar({ state, navigation }: TabBarProps) {
               if (focused) return;
               // Some Expo Router/native navigation versions omit emit on the tab navigator.
               // Navigation must still work; dispatch the optional event only when available.
-              const event = navigation.emit?.({ type: 'tabPress', target: route.key, canPreventDefault: true });
-              if (!event?.defaultPrevented) navigation.navigate(route.name, route.params);
+              const event = navigation?.emit?.({ type: 'tabPress', target: route.key, canPreventDefault: true });
+              if (event?.defaultPrevented) return;
+              if (navigation?.navigate) {
+                navigation.navigate(route.name, route.params);
+              } else {
+                // Defensive fallback for native navigator versions that omit the tab navigation prop.
+                const pathname = route.name === 'index' ? '/' : `/${route.name}`;
+                router.navigate({ pathname, params: route.params } as never);
+              }
             }}
             style={styles.item}
           >
