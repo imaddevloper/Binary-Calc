@@ -8,6 +8,8 @@ import { AppText } from './Text';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 
+/* eslint-disable react-hooks/immutability -- Reanimated shared-value writes are intentional UI-thread animation updates. */
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /** Small press-scale feedback that never changes layout (transform only). */
@@ -16,11 +18,8 @@ function usePressScale() {
   const style = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   return {
     style,
-    // Reanimated shared-value writes are intentional UI-thread animation updates.
-    // eslint-disable-next-line react-hooks/immutability
-    onPressIn: () => { s.value = withTiming(0.97, { duration: 90 }); },
-    // eslint-disable-next-line react-hooks/immutability
-    onPressOut: () => { s.value = withTiming(1, { duration: 120 }); },
+        onPressIn: () => { s.value = withTiming(0.97, { duration: 90 }); },
+        onPressOut: () => { s.value = withTiming(1, { duration: 120 }); },
   };
 }
 
