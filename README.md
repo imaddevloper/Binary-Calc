@@ -2,9 +2,9 @@
 
 Android-first React Native (Expo + TypeScript) app for learning and using number systems:
 Base 2 / 10 / 16 conversion with real step-by-step explanations, binary arithmetic, an IPv4 analyzer,
-camera/gallery IPv4 text recognition, 13 lessons, practice challenges and a local history.
-English (LTR) and Arabic (RTL). Light and Dark themes with a circular reveal transition.
-Everything core works **offline**; there is no account, no analytics, and nothing is uploaded.
+camera/gallery IPv4 text recognition, 17 lessons, practice challenges and a local history.
+English and Arabic; technical input and values remain LTR. Light and Dark themes with a circular reveal transition.
+Core calculations and lessons work **offline**. Online OCR is attempted first when an image is scanned and a network connection is available; the selected/captured image is sent to the project's Vercel OCR endpoint and then to OpenAI. If the service is unavailable, on-device ML Kit is used when supported. There is no account or analytics.
 
 > **Honest status.** The calculation engine and the localization are covered by automated tests that were
 > run (see "Verified so far"). The React Native UI was written but **has not been compiled or run on a device
@@ -108,14 +108,14 @@ reserved, limited broadcast, unspecified, …). Anything not in the table is "no
 
 ## Permissions and privacy
 
-- `CAMERA` — requested only when the scanner opens and the user taps "Allow camera". Photos are processed on the device and not stored.
+- `CAMERA` — requested only when the scanner opens and the user taps "Allow camera". Images may be sent to the Vercel OCR endpoint and OpenAI for online recognition; when online OCR is unavailable, ML Kit processes them on-device. The app does not save the source image.
 - Gallery import uses the Android system photo picker; no storage permission is requested. Storage/media/microphone permissions are blocked in `app.json`.
 - Stored locally (SQLite): theme, language, calculator preferences, history (max 200 items), challenge score, lesson progress.
-- No network calls are made by the app. The optional FastAPI backend from the brief was **not** built; the app does not need one.
+- Online OCR makes a network request to the configured Vercel endpoint. The OpenAI API key is stored only as a Vercel environment variable and must never be embedded in the mobile app.
 
 ## OCR
 
-`expo-text-extractor` (Google ML Kit on Android, on-device). It is wrapped by `src/services/ocr` so it can be replaced.
+Online vision OCR is attempted first through the Vercel endpoint. When it fails or is unavailable, `expo-text-extractor` (Google ML Kit on Android, on-device) is used as a fallback. The OpenAI API key is stored on Vercel, never in the app.
 Recognized text is parsed into IPv4 candidates; common confusions (`O→0`, `l/I/|→1`, `,→.`) are *suggested*, flagged and shown with the
 original text; the user must review/edit, and the same strict validator as manual entry decides whether analysis can proceed.
 No confidence value is shown because the library does not provide one. I have not run it on a device.
@@ -123,7 +123,7 @@ No confidence value is shown because the library does not provide one. I have no
 ## Language, RTL and theme
 
 - Language is chosen on first launch from the device language, then only by the user (Settings). It is stored and applied in-app, without a restart:
-  the root view uses the Yoga `direction` style, so rows, margins and alignment flip; modals re-apply it. Technical values (IPs, binary, hex, formulas) are
+  the app keeps a consistent left-to-right layout for controls while Arabic text is localized; technical values remain left-to-right. Technical values (IPs, binary, hex, formulas) are
   isolated left-to-right with Unicode isolates and a monospace font, so they never reverse in Arabic.
 - Theme: Light / Dark / System, stored in SQLite and loaded **before** the first frame (the native splash is held until preferences and fonts are ready).
   The header button photographs the old look, switches the theme underneath, photographs the new look, and grows a circle from the button that
@@ -136,7 +136,7 @@ The native splash (Expo config, `#0B0B0F` with the icon) hands over to an in-app
 
 ## Known limitations
 
-- UI code is uncompiled and untested on a device (see the status note). The circular reveal, camera, OCR, SQLite, clipboard, haptics and Arabic shaping all need an on-device check.
+- UI code, camera, online/offline OCR, SQLite, clipboard, haptics, Arabic shaping and the circular reveal must pass a real Android device test before release.
 - Image crop is not implemented (rotate and retake are); the picked/captured image is only held in memory/cache by the platform and is never saved by the app.
 - Tab and stack transitions use fades; they do not mirror slide direction in RTL.
 - Keyboard: binary/decimal use the numeric keypad (no space, `_` or `0b` keys there; pasted text still works); hex uses the normal keyboard.
