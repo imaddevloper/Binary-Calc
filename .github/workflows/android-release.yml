@@ -56,6 +56,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run unit tests
+        run: npm test
+
+      - name: TypeScript validation
+        run: npm run typecheck
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Check Expo dependency compatibility
+        run: npm run check-deps
+
+      - name: Expo Doctor
+        run: npx expo-doctor
+
       - name: Validate Expo configuration
         run: npx expo config --type public
 
