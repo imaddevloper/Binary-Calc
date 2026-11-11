@@ -42,7 +42,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Binary Calculator uses the camera only when you scan an IPv4 address. Photos are processed on your device and are not uploaded or saved.",
+          "cameraPermission": "Binary Calculator uses the camera only when you scan an IPv4 address. When online OCR is used, the image is sent to our OCR service and OpenAI for recognition; otherwise, recognition runs on your device. Images are not saved by the app.",
           "recordAudioAndroid": false
         }
       ],
