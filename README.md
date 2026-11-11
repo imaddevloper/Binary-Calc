@@ -4,7 +4,7 @@ Android-first React Native (Expo + TypeScript) app for learning and using number
 Base 2 / 10 / 16 conversion with real step-by-step explanations, binary arithmetic, an IPv4 analyzer,
 camera/gallery IPv4 text recognition, 17 lessons, practice challenges and a local history.
 English and Arabic; technical input and values remain LTR. Light and Dark themes with a circular reveal transition.
-Core calculations and lessons work **offline**. Online OCR is attempted first when an image is scanned and a network connection is available; the selected/captured image is sent to the project's Vercel OCR endpoint and then to OpenAI. If the service is unavailable, on-device ML Kit is used when supported. There is no account or analytics.
+Core calculations and lessons work **offline**. After the user explicitly chooses online OCR, the selected/captured image is sent to the project's Vercel OCR endpoint and then to OpenAI. The user can choose on-device OCR instead. If the service is unavailable, on-device ML Kit is used when supported. There is no account or analytics.
 
 > **Honest status.** The calculation engine and the localization are covered by automated tests that were
 > run (see "Verified so far"). The React Native UI was written but **has not been compiled or run on a device
