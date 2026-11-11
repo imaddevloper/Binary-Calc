@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useColorScheme } from 'react-native';
+import * as SystemUI from 'expo-system-ui';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { getLocales } from 'expo-localization';
@@ -13,6 +14,7 @@ import { ToastProvider } from '../src/components/Toast';
 import { Intro } from '../src/components/Intro';
 import { loadPrefs, savePref } from '../src/storage/prefs';
 import type { Prefs } from '../src/storage/prefs';
+import { palettes } from '../src/theme/colors';
 
 // Keep the native splash visible until fonts and saved preferences are ready.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -38,6 +40,7 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({ Cairo_400Regular, Cairo_600SemiBold, Cairo_700Bold, JetBrainsMono_500Medium, JetBrainsMono_700Bold });
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [introVisible, setIntroVisible] = useState(true);
+  const systemScheme = useColorScheme();
   const finishIntro = useCallback(() => setIntroVisible(false), []);
 
   useEffect(() => {
@@ -57,10 +60,16 @@ export default function RootLayout() {
   const ready = prefs !== null && (fontsLoaded || !!fontError);
 
   useEffect(() => {
-    if (ready) {
-      requestAnimationFrame(() => { void SplashScreen.hideAsync().catch(() => {}); });
-    }
-  }, [ready]);
+    if (!ready || !prefs) return;
+    let active = true;
+    const resolvedTheme = prefs.theme === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : prefs.theme;
+    void SystemUI.setBackgroundColorAsync(palettes[resolvedTheme].background)
+      .catch(() => undefined)
+      .then(() => {
+        if (active) void SplashScreen.hideAsync().catch(() => {});
+      });
+    return () => { active = false; };
+  }, [ready, prefs, systemScheme]);
 
   if (!ready || !prefs) return null;
 
