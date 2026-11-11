@@ -15,7 +15,7 @@ import { ScannerFrame } from './ScannerFrame';
 import { OcrCandidateCard } from './OcrCandidateCard';
 import { useI18n } from '../../hooks/useI18n';
 import { radius, spacing } from '../../theme/spacing';
-import { scanImageForIPv4 } from '../../services/ocr';
+import { isOnlineOcrConfigured, scanImageForIPv4 } from '../../services/ocr';
 import type { ScanOutcome } from '../../services/ocr';
 import { parseIPv4 } from '../../core/ipv4/index.ts';
 import type { OcrCandidate } from '../../core/ocr/candidates.ts';
@@ -56,7 +56,23 @@ export function ScannerScreen() {
   const runOcr = useCallback(async (imageUri: string) => {
     setStage('processing');
     setMessage(null);
-    const res = await scanImageForIPv4(imageUri);
+    let remoteImage: { base64: string; mimeType: 'image/jpeg' } | undefined;
+    if (isOnlineOcrConfigured()) {
+      try {
+        const optimized = await ImageManipulator.manipulate(imageUri)
+          .resize({ width: 1600 })
+          .renderAsync();
+        const encoded = await optimized.saveAsync({
+          format: SaveFormat.JPEG,
+          compress: 0.78,
+          base64: true,
+        });
+        if (encoded.base64) remoteImage = { base64: encoded.base64, mimeType: 'image/jpeg' };
+      } catch {
+        // Continue with the on-device OCR engine if image preparation fails.
+      }
+    }
+    const res = await scanImageForIPv4(imageUri, undefined, remoteImage);
     if (!alive.current) return;
     setOutcome(res);
     if (res.status === 'ok') {
