@@ -95,12 +95,16 @@ export function ChallengeQuestion({ challenge, mode, onAnswered, onNext, nextLab
     if (challenge.type === 'networkOctet') return <AppText variant="body">{tm('chal.explain.networkOctet', { v: challenge.prompt, a: challenge.answer })}</AppText>;
     if (challenge.type === 'broadcastOctet') return <AppText variant="body">{tm('chal.explain.broadcastOctet', { v: challenge.prompt, a: challenge.answer })}</AppText>;
     if (src === null) return null;
+    const normalized = challenge.prompt.replace(/^0x/i, '');
+    let conversionValue: bigint | null = null;
     try {
-      const normalized = challenge.prompt.replace(/^0x/i, '');
-      return <ConversionSteps value={BigInt(src === 10 ? normalized : src === 2 ? `0b${normalized}` : `0x${normalized}`)} from={src} normalized={normalized} />;
+      conversionValue = BigInt(src === 10 ? normalized : src === 2 ? `0b${normalized}` : `0x${normalized}`);
     } catch {
-      return null;
+      conversionValue = null;
     }
+    return conversionValue === null
+      ? null
+      : <ConversionSteps value={conversionValue} from={src} normalized={normalized} />;
   })();
 
   return (
