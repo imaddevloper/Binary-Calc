@@ -89,7 +89,24 @@ test('all challenge types generate valid, checkable answers across difficulty le
         if (type === 'privateIp') {
           assert.equal(parseIPv4(challenge.prompt).ok, true);
           assert.deepEqual(challenge.choices, ['yes', 'no']);
-        } else if (challenge.answerBase !== null) {
+          const [a, b] = challenge.prompt.split('.').map(Number);
+          const expectedPrivate = a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+          assert.equal(challenge.answer, expectedPrivate ? 'yes' : 'no');
+        } else if (type === 'cidrHostBits') {
+          assert.equal(Number(challenge.answer), 32 - Number(challenge.prompt.slice(1)));
+        } else if (type === 'networkOctet' || type === 'broadcastOctet') {
+          const [address, prefixText] = challenge.prompt.split('/');
+          const host = Number(address.split('.')[3]);
+          const blockSize = 2 ** (32 - Number(prefixText));
+          const network = Math.floor(host / blockSize) * blockSize;
+          const expected = type === 'networkOctet' ? network : network + blockSize - 1;
+          assert.equal(Number(challenge.answer), expected);
+        } else if (type === 'maskPrefix') {
+          const maskBits = challenge.prompt.split('.').map(Number)
+            .map((octet) => octet.toString(2).padStart(8, '0')).join('');
+          assert.equal(maskBits, '1'.repeat(Number(challenge.answer)) + '0'.repeat(32 - Number(challenge.answer)));
+        }
+        if (challenge.answerBase !== null) {
           assert.equal(challenge.choices.includes(challenge.answer), true);
           assert.equal(new Set(challenge.choices).size, 4);
         }
