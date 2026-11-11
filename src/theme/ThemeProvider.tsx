@@ -16,18 +16,16 @@ interface ThemeApi {
   name: ThemeName;
   mode: ThemeMode;
   setMode: (m: ThemeMode) => void;
-  /** Animated switch between light and dark, expanding from `origin` (window coordinates). */
   toggleTheme: (origin: Point) => void;
 }
 
 const ThemeContext = createContext<ThemeApi | null>(null);
-
-export const REVEAL_DURATION = 620;
+export const REVEAL_DURATION = 680;
 
 interface RevealState {
-  from: string; // snapshot URI of the old theme
-  to: string; // snapshot URI of the new theme
-  origin: Point; // relative to the app surface
+  from: string;
+  to: string;
+  origin: Point;
 }
 
 function measure(ref: React.RefObject<View | null>): Promise<{ x: number; y: number }> {
@@ -37,7 +35,7 @@ function measure(ref: React.RefObject<View | null>): Promise<{ x: number; y: num
   });
 }
 
-const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { prefs, setPref } = usePrefs();
@@ -50,42 +48,44 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const mode = prefs.theme;
   const name: ThemeName = mode === 'system' ? (scheme === 'dark' ? 'dark' : 'light') : mode;
-
   const setMode = useCallback((m: ThemeMode) => setPref('theme', m), [setPref]);
 
-  const toggleTheme = useCallback(
-    (origin: Point) => {
-      if (busy.current) return; // ignore rapid repeated taps while a reveal is running
-      busy.current = true;
-      const next: ThemeName = name === 'dark' ? 'light' : 'dark';
+  const toggleTheme = useCallback((origin: Point) => {
+    if (busy.current) return;
+    busy.current = true;
+    const next: ThemeName = name === 'dark' ? 'light' : 'dark';
 
-      if (reduced || !rootRef.current || size.w === 0) {
-        setPref('theme', next); // reduced motion: change theme with no expanding animation
+    if (reduced || !rootRef.current || size.w === 0 || size.h === 0) {
+      setPref('theme', next);
+      busy.current = false;
+      return;
+    }
+
+    void (async () => {
+      try {
+        // Capture the current screen before changing the palette. PNG avoids compression
+        // artifacts around text and thin borders during the circular transition.
+        const shot = { format: 'png' as const, result: 'tmpfile' as const };
+        const offset = await measure(rootRef);
+        const rel = { x: origin.x - offset.x, y: origin.y - offset.y };
+        const from = await captureRef(rootRef, shot);
+
+        // Mount the old frame first, then switch the live UI underneath it.
+        setReveal({ from, to: from, origin: rel });
+        await nextFrame();
+        setPref('theme', next);
+        await nextFrame();
+        await nextFrame();
+
+        const to = await captureRef(rootRef, shot);
+        setReveal({ from, to, origin: rel });
+      } catch {
+        setReveal(null);
+        setPref('theme', next);
         busy.current = false;
-        return;
       }
-
-      (async () => {
-        try {
-          const shot = { format: 'jpg' as const, quality: 0.85, result: 'tmpfile' as const };
-          const off = await measure(rootRef);
-          const rel = { x: origin.x - off.x, y: origin.y - off.y };
-          const from = await captureRef(rootRef, shot);
-          // Show the old look on top, switch the theme underneath, then photograph the new look.
-          setReveal({ from, to: from, origin: rel });
-          setPref('theme', next);
-          await wait(120); // let the new theme render
-          const to = await captureRef(rootRef, shot);
-          setReveal({ from, to, origin: rel });
-        } catch {
-          setPref('theme', next);
-          setReveal(null);
-          busy.current = false;
-        }
-      })();
-    },
-    [name, reduced, size.w, setPref],
-  );
+    })();
+  }, [name, reduced, size.w, size.h, setPref]);
 
   const finish = useCallback(() => {
     setReveal(null);
@@ -115,48 +115,46 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * The circular reveal: the old theme (photo) covers the screen; a circle that grows from the
- * toggle shows a photo of the new theme. When the circle covers the surface, the overlay is
- * removed and the live (already switched) UI is revealed — identical to the last frame.
- */
 function ThemeReveal({ state, width, height, onFinish }: { state: RevealState; width: number; height: number; onFinish: () => void }) {
   const { origin } = state;
   const ready = state.to !== state.from;
-  const r = useSharedValue(0);
-  const maxR = Math.hypot(Math.max(origin.x, width - origin.x), Math.max(origin.y, height - origin.y)) + 2;
+  const radius = useSharedValue(0);
+  const maxRadius = Math.hypot(Math.max(origin.x, width - origin.x), Math.max(origin.y, height - origin.y)) + 4;
 
   useEffect(() => {
     if (!ready) return;
-    r.value = 0;
-    r.value = withTiming(maxR, { duration: REVEAL_DURATION, easing: Easing.bezier(0.4, 0, 0.2, 1) });
-    const id = setTimeout(onFinish, REVEAL_DURATION + 60);
-    return () => clearTimeout(id);
-  }, [ready, maxR, r, onFinish]);
+    radius.value = 0;
+    radius.value = withTiming(maxRadius, {
+      duration: REVEAL_DURATION,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+    });
+    const timer = setTimeout(onFinish, REVEAL_DURATION + 80);
+    return () => clearTimeout(timer);
+  }, [ready, maxRadius, radius, onFinish]);
 
-  const circle = useAnimatedStyle(() => ({
+  const circleStyle = useAnimatedStyle(() => ({
     position: 'absolute',
-    left: origin.x - r.value,
-    top: origin.y - r.value,
-    width: r.value * 2,
-    height: r.value * 2,
-    borderRadius: r.value,
+    left: origin.x - radius.value,
+    top: origin.y - radius.value,
+    width: radius.value * 2,
+    height: radius.value * 2,
+    borderRadius: radius.value,
     overflow: 'hidden',
   }));
-  const inner = useAnimatedStyle(() => ({
+  const imageStyle = useAnimatedStyle(() => ({
     position: 'absolute',
-    left: -(origin.x - r.value),
-    top: -(origin.y - r.value),
+    left: -(origin.x - radius.value),
+    top: -(origin.y - radius.value),
     width,
     height,
   }));
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="auto" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Image source={{ uri: state.from }} style={{ width, height }} fadeDuration={0} />
+      <Image source={{ uri: state.from }} style={StyleSheet.absoluteFill} resizeMode="stretch" fadeDuration={0} />
       {ready ? (
-        <Animated.View style={circle}>
-          <Animated.Image source={{ uri: state.to }} style={inner} fadeDuration={0} />
+        <Animated.View style={circleStyle}>
+          <Animated.Image source={{ uri: state.to }} style={imageStyle} resizeMode="stretch" fadeDuration={0} />
         </Animated.View>
       ) : null}
     </View>
