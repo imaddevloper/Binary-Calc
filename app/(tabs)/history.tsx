@@ -115,7 +115,7 @@ export default function HistoryScreen() {
               <View style={{ paddingTop: spacing.md }}>
                 <SecondaryButton icon="trash" label={t('hist.clearAll')} onPress={() => setConfirmAll(true)} />
               </View>
-            ) : null
+            ) : undefined
           }
           keyboardShouldPersistTaps="handled"
         />
