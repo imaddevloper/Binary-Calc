@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeProvider';
@@ -16,7 +16,10 @@ function usePressScale() {
   const style = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   return {
     style,
+    // Reanimated shared-value writes are intentional UI-thread animation updates.
+    // eslint-disable-next-line react-hooks/immutability
     onPressIn: () => { s.value = withTiming(0.97, { duration: 90 }); },
+    // eslint-disable-next-line react-hooks/immutability
     onPressOut: () => { s.value = withTiming(1, { duration: 120 }); },
   };
 }
