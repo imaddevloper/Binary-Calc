@@ -283,6 +283,7 @@ export const en = {
   'learn.title': 'Learning',
   'learn.tab.lessons': 'Lessons',
   'learn.tab.challenges': 'Challenges',
+  'learn.tab.osi': 'OSI Academy',
   'learn.progress': 'Lesson {n} of {total}',
   'learn.completed': '{n} of {total} lessons completed',
   'learn.example': 'Example',
