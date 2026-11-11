@@ -104,6 +104,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [name, setPref]);
 
+  const abortBeforeSwitch = useCallback(() => {
+    const next: ThemeName = name === 'dark' ? 'light' : 'dark';
+    setPref('theme', next);
+    setReveal(null);
+    busy.current = false;
+    transitionStarted.current = false;
+  }, [name, setPref]);
+
   const finish = useCallback(() => {
     setReveal(null);
     busy.current = false;
@@ -133,6 +141,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             width={size.w}
             height={size.h}
             onBaseReady={onBaseImageReady}
+            onBaseError={abortBeforeSwitch}
             onFinish={finish}
           />
         ) : null}
@@ -148,12 +157,14 @@ function ThemeReveal({
   width,
   height,
   onBaseReady,
+  onBaseError,
   onFinish,
 }: {
   state: RevealState;
   width: number;
   height: number;
   onBaseReady: () => void;
+  onBaseError: () => void;
   onFinish: () => void;
 }) {
   const { origin } = state;
@@ -210,7 +221,7 @@ function ThemeReveal({
           baseReady.current = true;
           onBaseReady();
         }}
-        onError={onFinish}
+        onError={onBaseError}
       />
       {state.to ? (
         <Animated.View style={circleStyle}>
