@@ -36,7 +36,7 @@ export interface Challenge {
   answer: string;
   /** Four shuffled choices (includes the answer). */
   choices: string[];
-  /** Base the typed answer is read in; null for yes/no (invalidIp) */
+  /** Base for typed numeric answers; null for valid/invalid or yes/no choices. */
   answerBase: Base | null;
 }
 
@@ -201,9 +201,16 @@ export function generateChallenge(type: ChallengeType, difficulty: Difficulty, s
     }
     case 'privateIp': {
       const privateAddress = rng() < 0.5;
-      prompt = privateAddress
-        ? `10.${randInt(rng, 0, 255)}.${randInt(rng, 0, 255)}.${randInt(rng, 1, 254)}`
-        : (rng() < 0.5 ? '8.8.8.8' : '1.1.1.1');
+      if (privateAddress) {
+        const range = randInt(rng, 0, 2);
+        prompt = range === 0
+          ? `10.${randInt(rng, 0, 255)}.${randInt(rng, 0, 255)}.${randInt(rng, 1, 254)}`
+          : range === 1
+            ? `172.${randInt(rng, 16, 31)}.${randInt(rng, 0, 255)}.${randInt(rng, 1, 254)}`
+            : `192.168.${randInt(rng, 0, 255)}.${randInt(rng, 1, 254)}`;
+      } else {
+        prompt = rng() < 0.5 ? '8.8.8.8' : '1.1.1.1';
+      }
       answer = privateAddress ? 'yes' : 'no';
       answerBase = null;
       choices = ['yes', 'no'];
@@ -211,7 +218,7 @@ export function generateChallenge(type: ChallengeType, difficulty: Difficulty, s
     }
     case 'networkOctet':
     case 'broadcastOctet': {
-      const prefix = randInt(rng, difficulty === 'easy' ? 24 : 24, 30);
+      const prefix = randInt(rng, 24, 30);
       const host = randInt(rng, 1, 254);
       const blockSize = 2 ** (32 - prefix);
       const network = Math.floor(host / blockSize) * blockSize;
