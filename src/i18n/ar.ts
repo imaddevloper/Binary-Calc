@@ -285,6 +285,7 @@ export const ar: Record<TKey, string> = {
   'learn.title': 'التعلّم',
   'learn.tab.lessons': 'الدروس',
   'learn.tab.challenges': 'التحديات',
+  'learn.tab.osi': 'أكاديمية OSI',
   'learn.progress': 'الدرس {n} من {total}',
   'learn.completed': 'اكتمل {n} من {total} دروس',
   'learn.example': 'مثال',
