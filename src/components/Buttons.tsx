@@ -84,14 +84,14 @@ interface IconButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export const IconButton = React.forwardRef<View, IconButtonProps>(function IconButton(
+export const IconButton = React.forwardRef<React.ComponentRef<typeof Pressable>, IconButtonProps>(function IconButton(
   { icon, onPress, label, size = 22, color, disabled, style },
   ref,
 ) {
   const press = usePressScale();
   return (
     <AnimatedPressable
-      ref={ref as React.Ref<View>}
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
