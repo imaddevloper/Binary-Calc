@@ -51,7 +51,7 @@ export type ScanOutcome =
   | { status: 'unavailable' }
   | { status: 'failed' };
 
-export interface RemoteOcrImage {
+export function isOnlineOcrConfigured(): boolean {\n  return Boolean(process.env.EXPO_PUBLIC_OCR_API_URL);\n}\n\nexport interface RemoteOcrImage {
   base64: string;
   mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
 }
