@@ -60,6 +60,17 @@ export function ScannerScreen() {
     if (!alive.current) return;
     setOutcome(res);
     if (res.status === 'ok') {
+      // Auto-open a single exact, validated IPv4 result. Corrected OCR text and
+      // ambiguous/multiple results stay in review so a recognition guess is never trusted.
+      if (
+        res.candidates.length === 1 &&
+        res.candidates[0].valid &&
+        !res.candidates[0].needsConfirmation
+      ) {
+        setPendingIp(res.candidates[0].suggested);
+        router.replace('/ipv4');
+        return;
+      }
       setCandidates(res.candidates);
       setSelected(res.candidates.length === 1 ? 0 : null);
       setText(res.candidates.length === 1 ? res.candidates[0].suggested : '');
@@ -69,7 +80,7 @@ export function ScannerScreen() {
       setText('');
     }
     setStage('review');
-  }, []);
+  }, [router]);
 
   const pickFromGallery = useCallback(async () => {
     setFromGallery(true);
