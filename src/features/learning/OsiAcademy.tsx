@@ -158,9 +158,9 @@ export function OsiAcademy() {
 
       <Card>
         <AppText variant="heading">{ar ? 'مسارات ومراجع موثوقة' : 'Learning paths and references'}</AppText>
-        {[...OSI_PATHS, ...OSI_REFERENCES].map((item) => <Pressable key={item.name ?? item.title}
+        {[...OSI_PATHS.map((item) => ({ title: item.name, url: item.url })), ...OSI_REFERENCES].map((item) => <Pressable key={item.title}
           accessibilityRole="link" onPress={() => openExternal(item.url)} style={styles.resourceRow}>
-          <AppText color="accent">{item.name ?? item.title}</AppText>
+          <AppText color="accent">{item.title}</AppText>
           <AppText color="secondary" variant="caption">{item.url}</AppText>
         </Pressable>)}
       </Card>
