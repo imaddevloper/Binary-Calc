@@ -10,13 +10,13 @@ import { useI18n } from '../hooks/useI18n';
 import type { TKey } from '../i18n';
 
 /**
- * The small slice of the navigation tab-bar props this component uses. Declared here so the
- * component does not import from a navigation package whose entry point changes between Expo SDKs.
+ * Expo Router's tab navigation object can differ between native versions.
+ * The tab bar only needs navigate(); emitting tabPress is optional.
  */
 export interface TabBarProps {
   state: { index: number; routes: { key: string; name: string; params?: object }[] };
   navigation: {
-    emit: (e: { type: 'tabPress'; target: string; canPreventDefault: boolean }) => { defaultPrevented: boolean };
+    emit?: (e: { type: 'tabPress'; target: string; canPreventDefault: boolean }) => { defaultPrevented?: boolean };
     navigate: (name: string, params?: object) => void;
   };
 }
@@ -29,7 +29,7 @@ const TABS: Record<string, { icon: IconName; label: TKey }> = {
   history: { icon: 'time', label: 'nav.history' },
 };
 
-/** Custom tab bar so labels are localized, the active item is clear, and RTL order follows the layout direction. */
+/** Custom tab bar with localized labels and RTL-aware layout direction. */
 export function TabBar({ state, navigation }: TabBarProps) {
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -53,8 +53,11 @@ export function TabBar({ state, navigation }: TabBarProps) {
             accessibilityLabel={label}
             accessibilityState={{ selected: focused }}
             onPress={() => {
-              const e = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-              if (!focused && !e.defaultPrevented) navigation.navigate(route.name, route.params);
+              if (focused) return;
+              // Some Expo Router/native navigation versions omit emit on the tab navigator.
+              // Navigation must still work; dispatch the optional event only when available.
+              const event = navigation.emit?.({ type: 'tabPress', target: route.key, canPreventDefault: true });
+              if (!event?.defaultPrevented) navigation.navigate(route.name, route.params);
             }}
             style={styles.item}
           >
