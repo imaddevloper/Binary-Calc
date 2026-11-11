@@ -5,6 +5,8 @@
 import { extractIPv4Candidates } from '../../core/ocr/candidates.ts';
 import type { OcrCandidate } from '../../core/ocr/candidates.ts';
 
+const OCR_API_URL = 'https://binary-calc-ocr-imaddevloper.vercel.app/api/ocr';
+
 export interface OcrEngine {
   isSupported(): boolean;
   recognize(uri: string): Promise<string[]>;
@@ -51,17 +53,18 @@ export type ScanOutcome =
   | { status: 'unavailable' }
   | { status: 'failed' };
 
-export function isOnlineOcrConfigured(): boolean {\n  return Boolean(process.env.EXPO_PUBLIC_OCR_API_URL);\n}\n\nexport interface RemoteOcrImage {
+export function isOnlineOcrConfigured(): boolean {
+  return true;
+}
+
+export interface RemoteOcrImage {
   base64: string;
   mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
 }
 
 async function recognizeOnline(image: RemoteOcrImage): Promise<OcrCandidate[] | null> {
-  const endpoint = process.env.EXPO_PUBLIC_OCR_API_URL;
-  if (!endpoint) return null;
-
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(OCR_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageBase64: image.base64, mimeType: image.mimeType }),
