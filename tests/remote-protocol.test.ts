@@ -53,6 +53,12 @@ test("file commands stay disabled until Android user-granted storage access exis
   }).valid, false);
 });
 
+test("status command accepts only an empty payload and exact top-level keys", () => {
+  assert.equal(validateRemoteCommand({ type: "status", payload: {} }).valid, true);
+  assert.equal(validateRemoteCommand({ type: "status", payload: { path: "/" } }).valid, false);
+  assert.equal(validateRemoteCommand({ type: "status", payload: {}, shell: "id" }).valid, false);
+});
+
 test("device names are bounded and stripped of control characters", () => {
   assert.equal(sanitizeDeviceName("  Redmi 10\u0000 "), "Redmi 10");
   assert.equal(sanitizeDeviceName("x".repeat(80)).length, 48);
