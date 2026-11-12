@@ -23,6 +23,8 @@ import {
   revokeThisDevice,
   type PendingPairing,
 } from "../src/remote/client";
+import { addFolderGrant, listFolderGrants, removeFolderGrant } from "../src/remote/storage";
+import type { FolderGrantSummary } from "../src/remote/storage";
 
 const DASHBOARD_URL = "https://binary-calc-remote.binary-calc-remote.workers.dev/";
 
@@ -36,14 +38,16 @@ export default function RemoteScreen() {
   const [error, setError] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [grants, setGrants] = useState<FolderGrantSummary[]>([]);
 
   useEffect(() => {
     let alive = true;
-    void Promise.all([hasPairedDevice(), loadPendingPairing()])
-      .then(([isPaired, pendingPairing]) => {
+    void Promise.all([hasPairedDevice(), loadPendingPairing(), listFolderGrants()])
+      .then(([isPaired, pendingPairing, folderGrants]) => {
         if (!alive) return;
         setPaired(isPaired);
         setPending(pendingPairing);
+        setGrants(folderGrants);
         setRemainingSeconds(pendingPairing ? Math.max(0, Math.ceil((pendingPairing.expiresAt - Date.now()) / 1000)) : 0);
       })
       .catch(() => {
@@ -76,6 +80,7 @@ export default function RemoteScreen() {
         if (cause instanceof RemoteApiError && ["unauthorized", "not_paired"].includes(cause.code)) {
           setPaired(false);
           setLastSyncAt(null);
+          setGrants([]);
         }
         setError(errorMessage(cause, t));
       }
@@ -111,6 +116,36 @@ export default function RemoteScreen() {
     }
   };
 
+  const grantFolder = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const grant = await addFolderGrant();
+      if (grant) {
+        setGrants(await listFolderGrants());
+        toast.show(t("remote.folderGrantedToast"));
+      }
+    } catch (cause) {
+      setError(errorMessage(cause, t));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeGrant = async (grantId: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await removeFolderGrant(grantId);
+      setGrants(await listFolderGrants());
+      toast.show(t("remote.folderRemovedToast"));
+    } catch {
+      setError(t("remote.folderGrantFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const verifyPairing = async () => {
     setBusy(true);
     setError(null);
@@ -135,6 +170,7 @@ export default function RemoteScreen() {
       setPending(null);
       setRemainingSeconds(0);
       setLastSyncAt(null);
+      setGrants([]);
       setPaired(false);
       toast.show(t("remote.disconnectedToast"));
     } catch (cause) {
@@ -171,6 +207,19 @@ export default function RemoteScreen() {
             <InfoMessage message={t("remote.pairedStatus")} tone="success" />
             {lastSyncAt ? <AppText variant="caption" color="secondary">{t("remote.lastSync", { time: new Date(lastSyncAt).toLocaleTimeString() })}</AppText> : null}
             <AppText variant="caption" color="secondary">{t("remote.pairedLimitations")}</AppText>
+            <View style={{ gap: spacing.sm }}>
+              <AppText variant="subheading">{t("remote.grantedFolders")}</AppText>
+              <AppText variant="caption" color="secondary">{t("remote.folderGrantNote")}</AppText>
+              {grants.length === 0 ? (
+                <AppText variant="caption" color="secondary">{t("remote.noFolders")}</AppText>
+              ) : grants.map((grant) => (
+                <View key={grant.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
+                  <AppText variant="body" style={{ flex: 1 }}>{grant.name}</AppText>
+                  <SecondaryButton label={t("remote.removeFolder")} onPress={() => void removeGrant(grant.id)} disabled={busy} />
+                </View>
+              ))}
+              <SecondaryButton label={t("remote.grantFolder")} icon="shield-checkmark" onPress={() => void grantFolder()} disabled={busy || grants.length >= 3} />
+            </View>
             <SecondaryButton label={t("remote.disconnect")} icon="shield-checkmark" onPress={() => void disconnect()} disabled={busy} />
           </View>
         ) : pending ? (
@@ -216,6 +265,9 @@ function errorMessage(cause: unknown, t: (key: TKey) => string): string {
     pairing_temporarily_locked: "remote.pairingLocked",
     pairing_rate_limited: "remote.pairingRateLimited",
     unauthorized: "remote.unauthorized",
+    folder_grant_limit: "remote.folderLimit",
+    folder_access_not_granted: "remote.folderGrantFailed",
+    invalid_folder_grant: "remote.folderGrantFailed",
   };
   return t((keys[code] ?? "remote.genericError") as TKey);
 }
