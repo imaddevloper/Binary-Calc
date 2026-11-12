@@ -10,6 +10,7 @@ import { PrimaryButton, SecondaryButton } from "../src/components/Buttons";
 import { ErrorMessage, InfoMessage } from "../src/components/Feedback";
 import { useToast } from "../src/components/Toast";
 import { useI18n } from "../src/hooks/useI18n";
+import type { TKey } from "../src/i18n";
 import { spacing } from "../src/theme/spacing";
 import { useTheme } from "../src/theme/ThemeProvider";
 import {
@@ -170,7 +171,7 @@ export default function RemoteScreen() {
               <SecondaryButton label={t("common.copy")} icon="copy" onPress={() => void copyCode()} />
             </View>
             <PrimaryButton label={t("remote.openDashboard")} onPress={() => void openDashboard()} />
-            <SecondaryButton label={t("remote.verifyPairing")} onPress={() => void verifyPairing()} loading={busy} disabled={busy} />
+            <SecondaryButton label={t("remote.verifyPairing")} onPress={() => void verifyPairing()} disabled={busy} />
             <AppText variant="caption" color="secondary">{t("remote.pairInstructions")}</AppText>
           </View>
         ) : (
@@ -190,7 +191,7 @@ export default function RemoteScreen() {
   );
 }
 
-function errorMessage(cause: unknown, t: (key: any) => string): string {
+function errorMessage(cause: unknown, t: (key: TKey) => string): string {
   const code = typeof cause === "object" && cause !== null && "code" in cause
     ? String((cause as { code: unknown }).code)
     : "";
@@ -205,5 +206,5 @@ function errorMessage(cause: unknown, t: (key: any) => string): string {
     pairing_rate_limited: "remote.pairingRateLimited",
     unauthorized: "remote.unauthorized",
   };
-  return t((keys[code] ?? "remote.genericError") as any);
+  return t((keys[code] ?? "remote.genericError") as TKey);
 }
