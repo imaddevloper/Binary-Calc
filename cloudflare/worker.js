@@ -222,7 +222,9 @@ export class RemoteHub extends DurableObject {
         const existing = state.commands.find((item) => item.requestId === requestId);
         if (existing) return json({ commandId: existing.id, status: existing.status, duplicate: true });
       }
-      state.commands = state.commands.filter((item) => item.status === "queued" || item.createdAt > Date.now() - 24 * 60 * 60_000);
+      state.commands = state.commands
+        .filter((item) => item.status === "queued" || item.createdAt > Date.now() - 24 * 60 * 60_000)
+        .slice(-100);
       if (state.commands.filter((item) => item.status === "queued").length >= 25) {
         return json({ error: "command_queue_full" }, 429);
       }
