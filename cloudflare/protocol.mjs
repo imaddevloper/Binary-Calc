@@ -1,10 +1,5 @@
-export const COMMAND_TYPES = Object.freeze([
-  "status",
-  "list_granted_directory",
-  "create_directory",
-  "create_text_file",
-  "read_granted_file",
-]);
+// Only commands implemented by the current Android client are accepted.
+export const COMMAND_TYPES = Object.freeze(["status"]);
 
 const MAX_TEXT_FILE_CHARS = 4_096;
 const MAX_COMMAND_JSON_CHARS = 8_192;
