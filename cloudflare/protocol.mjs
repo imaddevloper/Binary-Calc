@@ -1,8 +1,14 @@
-// Only commands implemented by the current Android client are accepted.
-export const COMMAND_TYPES = Object.freeze(["status"]);
+export const COMMAND_TYPES = Object.freeze([
+  "status",
+  "list_granted_directory",
+  "create_directory",
+  "create_text_file",
+  "read_granted_file",
+]);
 
 const MAX_TEXT_FILE_CHARS = 4_096;
 const MAX_COMMAND_JSON_CHARS = 8_192;
+const MAX_PATH_CHARS = 400;
 const SAFE_ID = /^[A-Za-z0-9_-]{8,128}$/;
 const SAFE_NAME = /^(?!\.{1,2}$)[^\u0000-\u001f\u007f/\\]{1,120}$/;
 
@@ -28,35 +34,46 @@ export function isSafeFileName(value) {
   return typeof value === "string" && SAFE_NAME.test(value) && !value.includes("..");
 }
 
+export function isSafeRelativePath(value, allowRoot = true) {
+  if (typeof value !== "string" || value.length > MAX_PATH_CHARS) return false;
+  if (value === "") return allowRoot;
+  return value.split("/").every(isSafeFileName);
+}
+
 export function validateRemoteCommand(value) {
   if (!hasExactKeys(value, ["type", "payload"]) ||
       !COMMAND_TYPES.includes(value.type) || !isRecord(value.payload)) {
     return { valid: false, reason: "unsupported_command" };
   }
 
-  let valid = false;
   const p = value.payload;
+  let valid = false;
 
   switch (value.type) {
     case "status":
       valid = hasExactKeys(p, []);
       break;
     case "list_granted_directory":
-      valid = hasExactKeys(p, ["directoryId"]) && isSafeGrantId(p.directoryId);
+      valid = hasExactKeys(p, ["grantId", "path"]) &&
+        isSafeGrantId(p.grantId) && isSafeRelativePath(p.path);
       break;
     case "create_directory":
-      valid = hasExactKeys(p, ["parentId", "name"]) &&
-        isSafeGrantId(p.parentId) && isSafeFileName(p.name);
+      valid = hasExactKeys(p, ["grantId", "parentPath", "name"]) &&
+        isSafeGrantId(p.grantId) &&
+        isSafeRelativePath(p.parentPath) &&
+        isSafeFileName(p.name);
       break;
     case "create_text_file":
-      valid = hasExactKeys(p, ["parentId", "name", "content"]) &&
-        isSafeGrantId(p.parentId) &&
+      valid = hasExactKeys(p, ["grantId", "parentPath", "name", "content"]) &&
+        isSafeGrantId(p.grantId) &&
+        isSafeRelativePath(p.parentPath) &&
         isSafeFileName(p.name) &&
         typeof p.content === "string" &&
         p.content.length <= MAX_TEXT_FILE_CHARS;
       break;
     case "read_granted_file":
-      valid = hasExactKeys(p, ["fileId"]) && isSafeGrantId(p.fileId);
+      valid = hasExactKeys(p, ["grantId", "path"]) &&
+        isSafeGrantId(p.grantId) && isSafeRelativePath(p.path, false);
       break;
   }
 
