@@ -241,3 +241,7 @@ export async function executeStorageCommand(command: StorageCommand): Promise<un
     }
   }
 }
+
+export async function clearFolderGrants(): Promise<void> {
+  await SecureStore.deleteItemAsync(GRANTS_KEY);
+}
