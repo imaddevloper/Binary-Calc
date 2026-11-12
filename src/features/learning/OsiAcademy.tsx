@@ -24,7 +24,7 @@ export function OsiAcademy() {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => { setAnswer(null); }, [selectedId]);
+  const selectLayer = (id: number) => { setSelectedId(id); setAnswer(null); };
 
   const markComplete = () => {
     const next = completed.includes(selected.id) ? completed : [...completed, selected.id];
@@ -58,7 +58,7 @@ export function OsiAcademy() {
             <Pressable key={layer.id} accessibilityRole="button"
               accessibilityLabel={ar ? `الطبقة ${layer.id}: ${layer.ar}` : `Layer ${layer.id}: ${layer.name}`}
               accessibilityState={{ selected: active }}
-              onPress={() => setSelectedId(layer.id)}
+              onPress={() => selectLayer(layer.id)}
               style={[styles.layerButton, { backgroundColor: active ? colors.accentSoft : colors.surface, borderColor: active ? colors.accent : colors.border }]}>
               <View style={[styles.layerNumber, { backgroundColor: active ? colors.primary : colors.elevated }]}>
                 <AppText color={active ? 'onPrimary' : 'text'} variant="subheading">{layer.id}</AppText>
@@ -114,9 +114,9 @@ export function OsiAcademy() {
           onPress={markComplete} disabled={completed.includes(selected.id)} />
         <View style={styles.navigation}>
           <SecondaryButton label={ar ? 'الطبقة السابقة' : 'Previous layer'} disabled={selected.id === 1}
-            onPress={() => setSelectedId(Math.max(1, selected.id - 1))} style={styles.navButton} />
+            onPress={() => selectLayer(Math.max(1, selected.id - 1))} style={styles.navButton} />
           <SecondaryButton label={ar ? 'الطبقة التالية' : 'Next layer'} disabled={selected.id === 7}
-            onPress={() => setSelectedId(Math.min(7, selected.id + 1))} style={styles.navButton} />
+            onPress={() => selectLayer(Math.min(7, selected.id + 1))} style={styles.navButton} />
         </View>
       </Card>
 
