@@ -34,22 +34,46 @@ test("file names reject traversal, separators, and control characters", () => {
   assert.equal(isSafeFileName("bad\u0000name"), false);
 });
 
-test("file commands stay disabled until Android user-granted storage access exists", () => {
+test("SAF commands require a scoped grant and safe relative paths", () => {
   assert.equal(validateRemoteCommand({
     type: "list_granted_directory",
-    payload: { directoryId: "grant_123456" },
+    payload: { grantId: "grant_123456", path: "" },
+  }).valid, true);
+  assert.equal(validateRemoteCommand({
+    type: "list_granted_directory",
+    payload: { grantId: "grant_123456", path: "Photos/2026" },
+  }).valid, true);
+  assert.equal(validateRemoteCommand({
+    type: "list_granted_directory",
+    payload: { grantId: "grant_123456", path: "../private" },
   }).valid, false);
   assert.equal(validateRemoteCommand({
     type: "create_directory",
-    payload: { parentId: "grant_123456", name: "Documents" },
+    payload: { grantId: "grant_123456", parentPath: "Documents", name: "NewFolder" },
+  }).valid, true);
+  assert.equal(validateRemoteCommand({
+    type: "create_directory",
+    payload: { grantId: "grant_123456", parentPath: "../../", name: "NewFolder" },
   }).valid, false);
   assert.equal(validateRemoteCommand({
     type: "create_text_file",
-    payload: { parentId: "grant_123456", name: "note.txt", content: "hello" },
+    payload: { grantId: "grant_123456", parentPath: "", name: "note.txt", content: "hello" },
+  }).valid, true);
+  assert.equal(validateRemoteCommand({
+    type: "create_text_file",
+    payload: { grantId: "grant_123456", parentPath: "", name: "../note.txt", content: "hello" },
+  }).valid, false);
+  assert.equal(validateRemoteCommand({
+    type: "create_text_file",
+    payload: { grantId: "grant_123456", parentPath: "", name: "note.txt", content: "x".repeat(4097) },
   }).valid, false);
   assert.equal(validateRemoteCommand({
     type: "read_granted_file",
-    payload: { fileId: "grant_123456" },
+    payload: { grantId: "grant_123456", path: "notes/readme.txt" },
+  }).valid, true);
+  assert.equal(validateRemoteCommand({
+    type: "read_granted_file",
+    payload: { grantId: "grant_123456", path: "" },
   }).valid, false);
 });
 
