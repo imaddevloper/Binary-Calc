@@ -1,6 +1,6 @@
 import type { ChallengeType, Difficulty } from '../../core/challenges/index.ts';
 
-export const LESSON_COUNT = 13;
+export const LESSON_COUNT = 17;
 export const LESSON_IDS: number[] = Array.from({ length: LESSON_COUNT }, (_, i) => i + 1);
 
 /**
@@ -21,4 +21,8 @@ export const LESSON_TRY: Record<number, { type: ChallengeType; difficulty: Diffi
   11: { type: 'bin2hex', difficulty: 'easy' },
   12: { type: 'octet2bin', difficulty: 'medium' },
   13: { type: 'invalidIp', difficulty: 'easy' },
+  14: { type: 'maskPrefix', difficulty: 'medium' },
+  15: { type: 'cidrHostBits', difficulty: 'medium' },
+  16: { type: 'privateIp', difficulty: 'medium' },
+  17: { type: 'broadcastOctet', difficulty: 'hard' },
 };

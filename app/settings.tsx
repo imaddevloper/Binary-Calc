@@ -32,7 +32,7 @@ export default function SettingsScreen() {
   const { name, mode, setMode, toggleTheme } = useTheme();
   const router = useRouter();
   const toast = useToast();
-  const themeBox = useRef<View>(null);
+  const themeBox = useRef<React.ComponentRef<typeof View>>(null);
   const [confirm, setConfirm] = useState<'history' | 'reset' | null>(null);
   const [contactFailed, setContactFailed] = useState(false);
 

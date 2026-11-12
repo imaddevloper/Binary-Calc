@@ -72,6 +72,6 @@ test('every category has a title and a description in both languages', () => {
 
 test('translate substitutes parameters and ltr isolates technical text', () => {
   assert.equal(translate('en', 'err.too_long', { max: 256 }), 'The number is too long. Maximum supported length: 256 digits.');
-  assert.equal(translate('ar', 'learn.progress', { n: 3, total: 13 }), 'الدرس 3 من 13');
+  assert.equal(translate('ar', 'learn.progress', { n: 3, total: 17 }), 'الدرس 3 من 17');
   assert.equal(ltr('192.168.1.10'), '⁦192.168.1.10⁩');
 });

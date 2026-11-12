@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeProvider';
@@ -7,6 +7,8 @@ import { radius, spacing, TOUCH } from '../theme/spacing';
 import { AppText } from './Text';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
+
+/* eslint-disable react-hooks/immutability -- Reanimated shared-value writes are intentional UI-thread animation updates. */
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -16,8 +18,8 @@ function usePressScale() {
   const style = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   return {
     style,
-    onPressIn: () => { s.value = withTiming(0.97, { duration: 90 }); },
-    onPressOut: () => { s.value = withTiming(1, { duration: 120 }); },
+        onPressIn: () => { s.value = withTiming(0.97, { duration: 90 }); },
+        onPressOut: () => { s.value = withTiming(1, { duration: 120 }); },
   };
 }
 
@@ -84,14 +86,14 @@ interface IconButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export const IconButton = React.forwardRef<View, IconButtonProps>(function IconButton(
+export const IconButton = React.forwardRef<React.ComponentRef<typeof Pressable>, IconButtonProps>(function IconButton(
   { icon, onPress, label, size = 22, color, disabled, style },
   ref,
 ) {
   const press = usePressScale();
   return (
     <AnimatedPressable
-      ref={ref as React.Ref<View>}
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}

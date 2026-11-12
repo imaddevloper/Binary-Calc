@@ -30,6 +30,13 @@ export function IPv4Panel({ incoming, onAnalyzed }: Props) {
   const [raw, setRaw] = useState('');
   const [analysis, setAnalysis] = useState<IPv4Analysis | null>(null);
   const [attempted, setAttempted] = useState(false);
+  const [seenIncomingNonce, setSeenIncomingNonce] = useState<number | undefined>(undefined);
+
+  // Adjust local input during render when a new external address arrives.
+  if (incoming && incoming.nonce !== seenIncomingNonce) {
+    setSeenIncomingNonce(incoming.nonce);
+    setRaw(incoming.ip);
+  }
 
   const live = useMemo(() => (raw.trim() === '' ? null : parseIPv4(raw)), [raw]);
   const error = live && !live.ok
@@ -49,10 +56,8 @@ export function IPv4Panel({ incoming, onAnalyzed }: Props) {
 
   // Addresses coming from the scanner / history arrive already validated, but are re-validated here anyway.
   useEffect(() => {
-    if (incoming) {
-      setRaw(incoming.ip);
-      void run(incoming.ip);
-    }
+    if (incoming) void Promise.resolve().then(() => run(incoming.ip));
+    // The nonce intentionally identifies a new incoming scan/history result.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incoming?.nonce]);
 

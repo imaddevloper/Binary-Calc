@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppHeader } from '../../src/components/AppHeader';
@@ -19,11 +19,12 @@ export default function CalculatorScreen() {
   const { t } = useI18n();
   const router = useRouter();
   const params = useLocalSearchParams<Params>();
-  const [mode, setMode] = useState<Mode>(params.mode === 'arith' ? 'arith' : 'convert');
-
-  useEffect(() => {
-    if (params.mode === 'arith' || params.mode === 'convert') setMode(params.mode);
-  }, [params.mode]);
+  const [localMode, setLocalMode] = useState<Mode>('convert');
+  const mode: Mode = params.mode === 'arith' || params.mode === 'convert' ? params.mode : localMode;
+  const changeMode = (next: Mode) => {
+    setLocalMode(next);
+    if (params.mode !== undefined) router.setParams({ mode: undefined });
+  };
 
   const base: Base | undefined = params.base === '2' ? 2 : params.base === '10' ? 10 : params.base === '16' ? 16 : undefined;
   // A new key re-initialises a panel when it is opened with new values (e.g. from History).
@@ -37,7 +38,7 @@ export default function CalculatorScreen() {
       <Segmented
         groupLabel={t('nav.calculator')}
         value={mode}
-        onChange={setMode}
+        onChange={changeMode}
         options={[
           { value: 'convert', label: t('conv.mode.convert') },
           { value: 'arith', label: t('conv.mode.arith') },

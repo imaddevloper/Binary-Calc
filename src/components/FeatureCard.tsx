@@ -7,6 +7,8 @@ import type { IconName } from './Icon';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, spacing } from '../theme/spacing';
 
+/* eslint-disable react-hooks/immutability -- Reanimated shared-value writes are intentional UI-thread animation updates. */
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface Props {

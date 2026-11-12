@@ -4,7 +4,6 @@ import type { TextProps, TextStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { textStyles } from '../theme/typography';
 import type { TextVariant } from '../theme/typography';
-import { useI18n } from '../hooks/useI18n';
 import { ltr } from '../i18n';
 
 interface Props extends TextProps {
@@ -42,13 +41,12 @@ interface MonoProps extends Omit<Props, 'variant'> {
  * isolated with bidi marks so Arabic text around them can't reorder them.
  */
 export function Mono({ large, color = 'text', style, children, ...rest }: MonoProps) {
-  const { isRTL } = useI18n();
   return (
     <AppText
       {...rest}
       variant={large ? 'monoLarge' : 'mono'}
       color={color}
-      style={[{ writingDirection: 'ltr', textAlign: isRTL ? 'right' : 'left' }, style]}
+      style={[{ writingDirection: 'ltr', textAlign: 'left' }, style]}
     >
       {ltr(children)}
     </AppText>

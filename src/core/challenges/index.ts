@@ -15,10 +15,16 @@ export type ChallengeType =
   | 'hex2dec'
   | 'bin2hex'
   | 'octet2bin'
-  | 'invalidIp';
+  | 'invalidIp'
+  | 'cidrHostBits'
+  | 'maskPrefix'
+  | 'privateIp'
+  | 'networkOctet'
+  | 'broadcastOctet';
 
 export const CHALLENGE_TYPES: ChallengeType[] = [
   'dec2bin', 'bin2dec', 'dec2hex', 'hex2dec', 'bin2hex', 'octet2bin', 'invalidIp',
+  'cidrHostBits', 'maskPrefix', 'privateIp', 'networkOctet', 'broadcastOctet',
 ];
 
 export interface Challenge {
@@ -30,7 +36,7 @@ export interface Challenge {
   answer: string;
   /** Four shuffled choices (includes the answer). */
   choices: string[];
-  /** Base the typed answer is read in; null for yes/no (invalidIp) */
+  /** Base for typed numeric answers; null for valid/invalid or yes/no choices. */
   answerBase: Base | null;
 }
 
@@ -58,6 +64,17 @@ function shuffle<T>(rng: () => number, arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+function numberChoices(rng: () => number, answer: number, min: number, max: number): string[] {
+  const values = new Set<number>([answer]);
+  while (values.size < 4) values.add(randInt(rng, min, max));
+  return shuffle(rng, [...values].map(String));
+}
+
+function subnetMaskFromPrefix(prefix: number): string {
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  return [24, 16, 8, 0].map((shift) => String((mask >>> shift) & 255)).join('.');
 }
 
 /** Distractors in the answer's base: nearby values, deduplicated, never equal to the answer. */
@@ -165,6 +182,54 @@ export function generateChallenge(type: ChallengeType, difficulty: Difficulty, s
       choices = ['valid', 'invalid'];
       return { type, difficulty, prompt, answer, choices, answerBase };
     }
+    case 'cidrHostBits': {
+      const prefix = randInt(rng, difficulty === 'easy' ? 24 : 8, difficulty === 'hard' ? 30 : 30);
+      const hostBits = 32 - prefix;
+      prompt = `/${prefix}`;
+      answer = String(hostBits);
+      answerBase = 10;
+      choices = numberChoices(rng, hostBits, 0, 32);
+      break;
+    }
+    case 'maskPrefix': {
+      const prefix = randInt(rng, difficulty === 'easy' ? 24 : 8, 30);
+      prompt = subnetMaskFromPrefix(prefix);
+      answer = String(prefix);
+      answerBase = 10;
+      choices = numberChoices(rng, prefix, 0, 32);
+      break;
+    }
+    case 'privateIp': {
+      const privateAddress = rng() < 0.5;
+      if (privateAddress) {
+        const range = randInt(rng, 0, 2);
+        prompt = range === 0
+          ? `10.${randInt(rng, 0, 255)}.${randInt(rng, 0, 255)}.${randInt(rng, 1, 254)}`
+          : range === 1
+            ? `172.${randInt(rng, 16, 31)}.${randInt(rng, 0, 255)}.${randInt(rng, 1, 254)}`
+            : `192.168.${randInt(rng, 0, 255)}.${randInt(rng, 1, 254)}`;
+      } else {
+        prompt = rng() < 0.5 ? '8.8.8.8' : '1.1.1.1';
+      }
+      answer = privateAddress ? 'yes' : 'no';
+      answerBase = null;
+      choices = ['yes', 'no'];
+      return { type, difficulty, prompt, answer, choices, answerBase };
+    }
+    case 'networkOctet':
+    case 'broadcastOctet': {
+      const prefix = randInt(rng, 24, 30);
+      const host = randInt(rng, 1, 254);
+      const blockSize = 2 ** (32 - prefix);
+      const network = Math.floor(host / blockSize) * blockSize;
+      const broadcast = network + blockSize - 1;
+      prompt = `192.168.1.${host}/${prefix}`;
+      const value = type === 'networkOctet' ? network : broadcast;
+      answer = String(value);
+      answerBase = 10;
+      choices = numberChoices(rng, value, 0, 255);
+      break;
+    }
   }
 
   return { type, difficulty, prompt, answer, choices: shuffle(rng, choices.slice(0, 4)), answerBase };
@@ -179,7 +244,8 @@ export type AnswerCheck =
 export function checkAnswer(ch: Challenge, input: string): AnswerCheck {
   if (ch.answerBase === null) {
     const v = input.trim().toLowerCase();
-    if (v !== 'valid' && v !== 'invalid') return { status: 'invalid_format' };
+    const allowed = ch.type === 'privateIp' ? ['yes', 'no'] : ['valid', 'invalid'];
+    if (!allowed.includes(v)) return { status: 'invalid_format' };
     return { status: v === ch.answer ? 'correct' : 'wrong' };
   }
   const given = parseIntegerInput(input, ch.answerBase);

@@ -1,17 +1,14 @@
 /**
- * OCR adapter. The app depends on this small interface, not on a specific library.
- *
- * Implementation: `expo-text-extractor` — Google ML Kit text recognition on Android
- * (on-device, no network). It is a native module, so it needs a development build or a
- * release build; in Expo Go the module is missing and `isSupported()` returns false, in which
- * case the UI says so and offers manual entry. Nothing is ever uploaded.
+ * OCR adapter. Online vision OCR is preferred when configured; on-device ML Kit
+ * remains the privacy-friendly fallback when the network/service is unavailable.
  */
 import { extractIPv4Candidates } from '../../core/ocr/candidates.ts';
 import type { OcrCandidate } from '../../core/ocr/candidates.ts';
 
+const OCR_API_URL = 'https://binary-calc-ocr-imaddevloper.vercel.app/api/ocr';
+
 export interface OcrEngine {
   isSupported(): boolean;
-  /** Returns the recognised text lines for the image at `uri`. */
   recognize(uri: string): Promise<string[]>;
 }
 
@@ -22,7 +19,6 @@ interface ExtractorModule {
 
 function load(): ExtractorModule | null {
   try {
-    // Loaded lazily and guarded: a missing native module must not crash app startup.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('expo-text-extractor') as ExtractorModule;
     return mod && typeof mod.extractTextFromImage === 'function' ? mod : null;
@@ -57,8 +53,48 @@ export type ScanOutcome =
   | { status: 'unavailable' }
   | { status: 'failed' };
 
-/** Runs OCR and extracts IPv4 candidates. Every candidate still has to be confirmed and validated by the user flow. */
-export async function scanImageForIPv4(uri: string, engine: OcrEngine = ocrEngine): Promise<ScanOutcome> {
+export function isOnlineOcrConfigured(): boolean {
+  return true;
+}
+
+export interface RemoteOcrImage {
+  base64: string;
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+}
+
+async function recognizeOnline(image: RemoteOcrImage): Promise<OcrCandidate[] | null> {
+  try {
+    const response = await fetch(OCR_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: image.base64, mimeType: image.mimeType }),
+      signal: AbortSignal.timeout(28_000),
+    });
+    if (!response.ok) return null;
+
+    const payload: unknown = await response.json();
+    if (typeof payload !== 'object' || payload === null || !('addresses' in payload)) return null;
+    const addresses = (payload as { addresses?: unknown }).addresses;
+    if (!Array.isArray(addresses) || !addresses.every((item) => typeof item === 'string')) return null;
+
+    const candidates = extractIPv4Candidates(addresses.join('\n'));
+    return candidates.length > 0 ? candidates : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Online OCR is attempted first; ML Kit is the offline fallback. */
+export async function scanImageForIPv4(
+  uri: string,
+  engine: OcrEngine = ocrEngine,
+  remoteImage?: RemoteOcrImage,
+): Promise<ScanOutcome> {
+  if (remoteImage) {
+    const onlineCandidates = await recognizeOnline(remoteImage);
+    if (onlineCandidates) return { status: 'ok', candidates: onlineCandidates };
+  }
+
   if (!engine.isSupported()) return { status: 'unavailable' };
   try {
     const lines = await engine.recognize(uri);

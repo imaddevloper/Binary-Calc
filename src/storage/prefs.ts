@@ -117,3 +117,29 @@ export async function saveCompletedLessons(ids: number[]): Promise<void> {
     await db.runAsync("INSERT OR REPLACE INTO prefs (key, value) VALUES ('lessonsDone', ?)", JSON.stringify(ids));
   } catch { /* in-memory only */ }
 }
+
+
+/** OSI Academy progress is independent from the existing binary lessons. */
+export async function loadOsiCompletedLayers(): Promise<number[]> {
+  try {
+    const db = await getDb();
+    const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM prefs WHERE key = 'osiLayersDone'");
+    if (!row) return [];
+    const value: unknown = JSON.parse(row.value);
+    return Array.isArray(value)
+      ? [...new Set(value.filter((n): n is number => Number.isInteger(n) && n >= 1 && n <= 7))]
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveOsiCompletedLayers(ids: number[]): Promise<void> {
+  try {
+    const safe = [...new Set(ids.filter((n) => Number.isInteger(n) && n >= 1 && n <= 7))].sort((a, b) => a - b);
+    const db = await getDb();
+    await db.runAsync("INSERT OR REPLACE INTO prefs (key, value) VALUES ('osiLayersDone', ?)", JSON.stringify(safe));
+  } catch {
+    // Keep the academy usable if local storage is unavailable.
+  }
+}

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Linking, StyleSheet, View } from 'react-native';
+import { Alert, Image, Linking, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,7 +15,7 @@ import { ScannerFrame } from './ScannerFrame';
 import { OcrCandidateCard } from './OcrCandidateCard';
 import { useI18n } from '../../hooks/useI18n';
 import { radius, spacing } from '../../theme/spacing';
-import { scanImageForIPv4 } from '../../services/ocr';
+import { isOnlineOcrConfigured, scanImageForIPv4 } from '../../services/ocr';
 import type { ScanOutcome } from '../../services/ocr';
 import { parseIPv4 } from '../../core/ipv4/index.ts';
 import type { OcrCandidate } from '../../core/ocr/candidates.ts';
@@ -56,10 +56,56 @@ export function ScannerScreen() {
   const runOcr = useCallback(async (imageUri: string) => {
     setStage('processing');
     setMessage(null);
-    const res = await scanImageForIPv4(imageUri);
+    let remoteImage: { base64: string; mimeType: 'image/jpeg' } | undefined;
+    const allowOnline = isOnlineOcrConfigured()
+      ? await new Promise<boolean>((resolve) => {
+          let settled = false;
+          const finish = (value: boolean) => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+          };
+          Alert.alert(
+            t('scan.onlineTitle'),
+            t('scan.onlineBody'),
+            [
+              { text: t('scan.localOption'), style: 'cancel', onPress: () => finish(false) },
+              { text: t('scan.onlineOption'), onPress: () => finish(true) },
+            ],
+            { cancelable: true, onDismiss: () => finish(false) },
+          );
+        })
+      : false;
+    if (allowOnline) {
+      try {
+        const optimized = await ImageManipulator.manipulate(imageUri)
+          .resize({ width: 1600 })
+          .renderAsync();
+        const encoded = await optimized.saveAsync({
+          format: SaveFormat.JPEG,
+          compress: 0.78,
+          base64: true,
+        });
+        if (encoded.base64) remoteImage = { base64: encoded.base64, mimeType: 'image/jpeg' };
+      } catch {
+        // Continue with the on-device OCR engine if image preparation fails.
+      }
+    }
+    const res = await scanImageForIPv4(imageUri, undefined, remoteImage);
     if (!alive.current) return;
     setOutcome(res);
     if (res.status === 'ok') {
+      // Auto-open a single exact, validated IPv4 result. Corrected OCR text and
+      // ambiguous/multiple results stay in review so a recognition guess is never trusted.
+      if (
+        res.candidates.length === 1 &&
+        res.candidates[0].valid &&
+        !res.candidates[0].needsConfirmation
+      ) {
+        setPendingIp(res.candidates[0].suggested);
+        router.replace('/ipv4');
+        return;
+      }
       setCandidates(res.candidates);
       setSelected(res.candidates.length === 1 ? 0 : null);
       setText(res.candidates.length === 1 ? res.candidates[0].suggested : '');
@@ -69,7 +115,7 @@ export function ScannerScreen() {
       setText('');
     }
     setStage('review');
-  }, []);
+  }, [router, t]);
 
   const pickFromGallery = useCallback(async () => {
     setFromGallery(true);
@@ -91,9 +137,10 @@ export function ScannerScreen() {
       setMessage(t('scan.pickFailed'));
       setStage('review');
     }
-  }, [permission?.granted, runOcr, source, t, uri]);
+  }, [permission, runOcr, source, t, uri]);
 
   // Opened via "Import image": go straight to the picker once.
+  // pickFromGallery is intentionally invoked once per route entry; pickedOnce prevents duplicate launches.
   useEffect(() => {
     if (source === 'gallery' && !pickedOnce.current) {
       pickedOnce.current = true;
