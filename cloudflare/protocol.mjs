@@ -15,6 +15,12 @@ export function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function hasExactKeys(value, keys) {
+  return isRecord(value) &&
+    Object.keys(value).length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key));
+}
+
 export function isValidPairCode(value) {
   return typeof value === "string" && /^\d{8}$/.test(value);
 }
@@ -28,7 +34,8 @@ export function isSafeFileName(value) {
 }
 
 export function validateRemoteCommand(value) {
-  if (!isRecord(value) || !COMMAND_TYPES.includes(value.type) || !isRecord(value.payload)) {
+  if (!hasExactKeys(value, ["type", "payload"]) ||
+      !COMMAND_TYPES.includes(value.type) || !isRecord(value.payload)) {
     return { valid: false, reason: "unsupported_command" };
   }
 
@@ -37,23 +44,24 @@ export function validateRemoteCommand(value) {
 
   switch (value.type) {
     case "status":
-      valid = Object.keys(p).length === 0;
+      valid = hasExactKeys(p, []);
       break;
     case "list_granted_directory":
-      valid = isSafeGrantId(p.directoryId);
+      valid = hasExactKeys(p, ["directoryId"]) && isSafeGrantId(p.directoryId);
       break;
     case "create_directory":
-      valid = isSafeGrantId(p.parentId) && isSafeFileName(p.name);
+      valid = hasExactKeys(p, ["parentId", "name"]) &&
+        isSafeGrantId(p.parentId) && isSafeFileName(p.name);
       break;
     case "create_text_file":
-      valid =
+      valid = hasExactKeys(p, ["parentId", "name", "content"]) &&
         isSafeGrantId(p.parentId) &&
         isSafeFileName(p.name) &&
         typeof p.content === "string" &&
         p.content.length <= MAX_TEXT_FILE_CHARS;
       break;
     case "read_granted_file":
-      valid = isSafeGrantId(p.fileId);
+      valid = hasExactKeys(p, ["fileId"]) && isSafeGrantId(p.fileId);
       break;
   }
 
