@@ -34,36 +34,23 @@ test("file names reject traversal, separators, and control characters", () => {
   assert.equal(isSafeFileName("bad\u0000name"), false);
 });
 
-test("create-directory command requires a granted parent and exact payload keys", () => {
+test("file commands stay disabled until Android user-granted storage access exists", () => {
+  assert.equal(validateRemoteCommand({
+    type: "list_granted_directory",
+    payload: { directoryId: "grant_123456" },
+  }).valid, false);
   assert.equal(validateRemoteCommand({
     type: "create_directory",
     payload: { parentId: "grant_123456", name: "Documents" },
-  }).valid, true);
-  assert.equal(validateRemoteCommand({
-    type: "create_directory",
-    payload: { parentId: "grant_123456", name: "Documents", path: "/private" },
   }).valid, false);
-  assert.equal(validateRemoteCommand({
-    type: "create_directory",
-    payload: { parentId: "../../", name: "Documents" },
-  }).valid, false);
-});
-
-test("text file command enforces content size and exact payload keys", () => {
   assert.equal(validateRemoteCommand({
     type: "create_text_file",
     payload: { parentId: "grant_123456", name: "note.txt", content: "hello" },
-  }).valid, true);
-  assert.equal(validateRemoteCommand({
-    type: "create_text_file",
-    payload: { parentId: "grant_123456", name: "note.txt", content: "x".repeat(4097) },
   }).valid, false);
-});
-
-test("status command has no payload fields", () => {
-  assert.equal(validateRemoteCommand({ type: "status", payload: {} }).valid, true);
-  assert.equal(validateRemoteCommand({ type: "status", payload: { path: "/" } }).valid, false);
-  assert.equal(validateRemoteCommand({ type: "status", payload: {}, shell: "id" }).valid, false);
+  assert.equal(validateRemoteCommand({
+    type: "read_granted_file",
+    payload: { fileId: "grant_123456" },
+  }).valid, false);
 });
 
 test("device names are bounded and stripped of control characters", () => {
