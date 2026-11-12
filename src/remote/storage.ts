@@ -228,6 +228,7 @@ export async function executeStorageCommand(command: StorageCommand): Promise<un
       }
       if (!fileUri) throw new RemoteStorageError("file_not_found");
       const info = await FileSystem.getInfoAsync(fileUri);
+      if (!info.exists || info.isDirectory) throw new RemoteStorageError("file_not_found");
       const extension = fileName.includes(".") ? fileName.split(".").pop()!.toLowerCase() : "";
       if (!TEXT_EXTENSIONS.has(extension)) throw new RemoteStorageError("file_type_not_supported");
       if (typeof info.size !== "number" || info.size > MAX_TEXT_FILE_BYTES) {
