@@ -84,6 +84,7 @@ export default {
       "POST /api/controller/revoke",
       "GET /api/device/commands",
       "POST /api/device/ack",
+      "POST /api/device/unpair",
     ]);
     if (!routes.has(request.method + " " + url.pathname)) {
       return json({ error: "not_found" }, 404);
@@ -276,6 +277,13 @@ export class RemoteHub extends DurableObject {
       for (const command of commands) command.lastSentAt = Date.now();
       await this.saveState(state);
       return json({ serverTime: Date.now(), commands });
+    }
+
+    if (route === "/api/device/unpair" && request.method === "POST") {
+      if (!state || state.revoked || !state.deviceTokenHash) return json({ error: "not_paired" }, 403);
+      if (!equalHash(await hash(bearer(request)), state.deviceTokenHash)) return json({ error: "unauthorized" }, 401);
+      await this.saveState({ revoked: true, commands: [], pendingExpiresAt: 0 });
+      return json({ revoked: true });
     }
 
     if (route === "/api/device/ack" && request.method === "POST") {
