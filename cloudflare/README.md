@@ -41,9 +41,18 @@ The existing Worker must have the existing SQLite-backed Durable Object binding:
 
 Deploy `worker.js` as the main module and upload `protocol.mjs` as a module dependency. Keep the Worker HTTPS-only. Do not add a shared master token to the APK.
 
+## Controller dashboard and current mobile behavior
+
+- Open the Worker root URL in a browser to use the self-hosted controller dashboard.
+- Enter the one-time code shown by Binary-Calc. The controller token is stored in that browser tab's session storage.
+- Return to the phone and tap **Finish pairing**. The device token is stored with Expo SecureStore.
+- The app polls for status commands every 15 seconds only while the Remote Access screen is visible and the app is foregrounded. It acknowledges the status command and reports the last-seen heartbeat.
+- The controller can queue a status check and refresh the device's online state. It cannot browse or change files yet.
+- Revoke from either side to invalidate the pairing. A revoked device credential is cleared locally when the phone receives the unauthorized response.
+
 ## Android limitations
 
-A powered-off phone cannot receive commands. Android may also pause background work under Doze, battery optimization, force-stop, or vendor restrictions. This API phase uses bounded polling; it is not a claim of uninterrupted background connectivity. A visible foreground service and push-assisted reconnect will be evaluated in the Android-native phase.
+A powered-off phone cannot receive commands. Android may also pause background work under Doze, battery optimization, force-stop, or vendor restrictions. The current mobile implementation polls only while the Remote Access screen is visible; it is not a background service and does not claim uninterrupted connectivity. A visible foreground service and push-assisted reconnect will be evaluated in the Android-native phase.
 
 ## Testing
 
