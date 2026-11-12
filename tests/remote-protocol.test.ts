@@ -40,18 +40,22 @@ test("file names reject traversal, separators, and control characters", () => {
   assert.equal(isSafeFileName("bad\u0000name"), false);
 });
 
-test("create-directory command requires a granted parent and safe name", () => {
+test("create-directory command requires a granted parent and exact payload keys", () => {
   assert.equal(validateRemoteCommand({
     type: "create_directory",
     payload: { parentId: "grant_123456", name: "Documents" },
   }).valid, true);
   assert.equal(validateRemoteCommand({
     type: "create_directory",
+    payload: { parentId: "grant_123456", name: "Documents", path: "/private" },
+  }).valid, false);
+  assert.equal(validateRemoteCommand({
+    type: "create_directory",
     payload: { parentId: "../../", name: "Documents" },
   }).valid, false);
 });
 
-test("text file command enforces content size", () => {
+test("text file command enforces content size and exact payload keys", () => {
   assert.equal(validateRemoteCommand({
     type: "create_text_file",
     payload: { parentId: "grant_123456", name: "note.txt", content: "hello" },
@@ -65,6 +69,7 @@ test("text file command enforces content size", () => {
 test("status command has no payload fields", () => {
   assert.equal(validateRemoteCommand({ type: "status", payload: {} }).valid, true);
   assert.equal(validateRemoteCommand({ type: "status", payload: { path: "/" } }).valid, false);
+  assert.equal(validateRemoteCommand({ type: "status", payload: {}, shell: "id" }).valid, false);
 });
 
 test("device names are bounded and stripped of control characters", () => {
