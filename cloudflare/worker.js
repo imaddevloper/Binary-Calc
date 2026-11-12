@@ -122,6 +122,18 @@ export default {
 };
 
 export class RemoteHub extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.serial = Promise.resolve();
+  }
+
+  async fetch(request) {
+    const operation = this.serial.then(() => this.handle(request));
+    this.serial = operation.then(() => undefined, () => undefined);
+    return operation;
+  }
+
+  async handle(request) {
   async loadState() {
     return (await this.ctx.storage.get("remote-state")) || null;
   }
