@@ -144,3 +144,47 @@ export async function revokeThisDevice(): Promise<void> {
   await SecureStore.deleteItemAsync(DEVICE_TOKEN_KEY);
   await SecureStore.deleteItemAsync(PENDING_KEY);
 }
+
+
+export interface RemoteDeviceCommand {
+  id: string;
+  type: "status";
+  payload: Record<string, never>;
+}
+
+export async function pollDeviceCommands(): Promise<number> {
+  const token = await SecureStore.getItemAsync(DEVICE_TOKEN_KEY);
+  if (!token) return 0;
+
+  let result: { commands: RemoteDeviceCommand[] };
+  try {
+    result = await request<{ commands: RemoteDeviceCommand[] }>("/api/device/commands", { token });
+  } catch (error) {
+    if (error instanceof RemoteApiError && ["unauthorized", "not_paired"].includes(error.code)) {
+      await SecureStore.deleteItemAsync(DEVICE_TOKEN_KEY);
+    }
+    throw error;
+  }
+
+  let processed = 0;
+  for (const command of result.commands) {
+    if (command.type === "status") {
+      const deviceStatus = {
+        platform: "android",
+        appVersion: "1.0.0",
+        clientState: "foreground_only",
+      };
+      await request("/api/device/ack", {
+        method: "POST",
+        token,
+        body: {
+          commandId: command.id,
+          status: "completed",
+          result: JSON.stringify(deviceStatus),
+        },
+      });
+      processed += 1;
+    }
+  }
+  return processed;
+}
