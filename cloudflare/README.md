@@ -7,7 +7,7 @@ This directory contains the source for the Cloudflare Worker currently used by t
 - Cloudflare Workers Free handles the HTTPS API.
 - One SQLite-backed Durable Object stores pairing metadata, hashed credentials, a bounded command queue, and acknowledgements.
 - **No R2 bucket, paid storage, public file bucket, or cloud file archive is used.**
-- File contents are not stored by this backend. File transfer will be implemented as an authenticated, chunked relay only after the Android client has explicit user-granted Storage Access Framework (SAF) access.
+- File contents are not stored by this backend. The phone grants access only to folders explicitly selected through Android Storage Access Framework (SAF).
 
 ## Current API phase
 
@@ -28,8 +28,12 @@ The device token is returned once and stored in Android SecureStore. The control
 The backend accepts only these command names:
 
 - `status`
+- `list_granted_directory`
+- `create_directory`
+- `create_text_file`
+- `read_granted_file`
 
-The server currently accepts only `status`, because that is the only command implemented by the mobile client. File listing, file creation, and file reading remain disabled until Android Storage Access Framework grants are implemented and tested. The server does not execute shell commands or access a phone filesystem. Future file operations must resolve opaque grant IDs only through user-selected SAF URIs and must never access other apps' private data or protected system files.
+The Android client stores up to three user-selected SAF folder grants in SecureStore. Remote paths are relative to one of those grants; traversal, absolute paths, and unapproved roots are rejected. The controller can list entries, create subfolders and small text files, and preview small text files with approved extensions. Text previews are limited to 2,500 bytes. Binary files, photos, deletion, shell commands, and access to other apps' private data or protected system files are not enabled.
 
 ## Deployment requirements
 
@@ -46,8 +50,8 @@ Deploy `worker.js` as the main module and upload `protocol.mjs` as a module depe
 - Open the Worker root URL in a browser to use the self-hosted controller dashboard.
 - Enter the one-time code shown by Binary-Calc. The controller token is stored in that browser tab's session storage.
 - Return to the phone and tap **Finish pairing**. The device token is stored with Expo SecureStore.
-- The app polls for status commands every 15 seconds only while the Remote Access screen is visible and the app is foregrounded. It acknowledges the status command and reports the last-seen heartbeat.
-- The controller can queue a status check and refresh the device's online state. It cannot browse or change files yet.
+- The app polls for commands every 15 seconds only while the Remote Access screen is visible and the app is foregrounded.
+- The controller can list approved folders, navigate subfolders, create folders and small text files, and preview small text files. The controller must refresh after the phone processes each queued command.
 - Revoke from either side to invalidate the pairing. A revoked device credential is cleared locally when the phone receives the unauthorized response.
 
 ## Android limitations
@@ -56,4 +60,4 @@ A powered-off phone cannot receive commands. Android may also pause background w
 
 ## Testing
 
-Run `npm test` from the repository root. Protocol tests cover pairing-code format, strict command allowlisting, safe grant identifiers and file names, and device-name sanitization.
+Run `npm test` from the repository root. Protocol tests cover pairing-code format, strict command allowlisting, safe grant identifiers and relative paths, file names, and device-name sanitization.
