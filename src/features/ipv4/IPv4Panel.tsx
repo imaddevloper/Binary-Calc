@@ -56,7 +56,7 @@ export function IPv4Panel({ incoming, onAnalyzed }: Props) {
 
   // Addresses coming from the scanner / history arrive already validated, but are re-validated here anyway.
   useEffect(() => {
-    if (incoming) void run(incoming.ip);
+    if (incoming) void Promise.resolve().then(() => run(incoming.ip));
     // The nonce intentionally identifies a new incoming scan/history result.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incoming?.nonce]);
