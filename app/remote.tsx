@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Linking, Platform, View } from "react-native";
+import { AppState, Linking, Platform, View } from "react-native";
 import Constants from "expo-constants";
 import * as Clipboard from "expo-clipboard";
 import { Screen } from "../src/components/Screen";
@@ -17,6 +17,8 @@ import {
   createPairingSession,
   hasPairedDevice,
   loadPendingPairing,
+  pollDeviceCommands,
+  RemoteApiError,
   revokeThisDevice,
   type PendingPairing,
 } from "../src/remote/client";
@@ -31,6 +33,7 @@ export default function RemoteScreen() {
   const [paired, setPaired] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -45,6 +48,42 @@ export default function RemoteScreen() {
   useEffect(() => {
     void refresh().catch(() => setError(t("remote.loadFailed")));
   }, [refresh, t]);
+  useEffect(() => {
+    if (!paired) {
+      setLastSyncAt(null);
+      return;
+    }
+
+    let alive = true;
+    const poll = async () => {
+      if (AppState.currentState !== "active") return;
+      try {
+        await pollDeviceCommands();
+        if (alive) {
+          setLastSyncAt(Date.now());
+          setError(null);
+        }
+      } catch (cause) {
+        if (!alive) return;
+        if (cause instanceof RemoteApiError && ["unauthorized", "not_paired"].includes(cause.code)) {
+          setPaired(false);
+        }
+        setError(errorMessage(cause, t));
+      }
+    };
+
+    void poll();
+    const interval = setInterval(() => void poll(), 15_000);
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void poll();
+    });
+
+    return () => {
+      alive = false;
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [paired, t]);
 
   const createCode = async () => {
     setBusy(true);
@@ -118,6 +157,7 @@ export default function RemoteScreen() {
         {paired ? (
           <View style={{ gap: spacing.md }}>
             <InfoMessage message={t("remote.pairedStatus")} tone="success" />
+            {lastSyncAt ? <AppText variant="caption" color="secondary">{t("remote.lastSync", { time: new Date(lastSyncAt).toLocaleTimeString() })}</AppText> : null}
             <AppText variant="caption" color="secondary">{t("remote.pairedLimitations")}</AppText>
             <SecondaryButton label={t("remote.disconnect")} icon="shield-checkmark" onPress={() => void disconnect()} disabled={busy} />
           </View>
