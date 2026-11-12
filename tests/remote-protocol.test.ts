@@ -37,7 +37,7 @@ test("file names reject traversal, separators, and control characters", () => {
   assert.equal(isSafeFileName("notes.txt"), true);
   assert.equal(isSafeFileName("../notes.txt"), false);
   assert.equal(isSafeFileName("folder/file.txt"), false);
-  assert.equal(isSafeFileName("bad\\u0000name"), false);
+  assert.equal(isSafeFileName("bad\u0000name"), false);
 });
 
 test("create-directory command requires a granted parent and safe name", () => {
@@ -68,7 +68,7 @@ test("status command has no payload fields", () => {
 });
 
 test("device names are bounded and stripped of control characters", () => {
-  assert.equal(sanitizeDeviceName("  Redmi 10\\u0000 "), "Redmi 10");
+  assert.equal(sanitizeDeviceName("  Redmi 10\u0000 "), "Redmi 10");
   assert.equal(sanitizeDeviceName("x".repeat(80)).length, 48);
   assert.equal(sanitizeDeviceName(null), "Android device");
   assert.equal(isRecord([]), false);
