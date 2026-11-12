@@ -17,7 +17,13 @@ test("pairing codes must be exactly eight decimal digits", () => {
 });
 
 test("remote command allowlist excludes arbitrary commands", () => {
-  assert.deepEqual(COMMAND_TYPES, ["status"]);
+  assert.deepEqual(COMMAND_TYPES, [
+    "status",
+    "list_granted_directory",
+    "create_directory",
+    "create_text_file",
+    "read_granted_file",
+  ]);
   assert.equal(validateRemoteCommand({ type: "shell", payload: { command: "id" } }).valid, false);
 });
 
