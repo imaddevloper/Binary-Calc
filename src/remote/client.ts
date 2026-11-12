@@ -1,4 +1,6 @@
 import * as SecureStore from "expo-secure-store";
+import { executeStorageCommand, listFolderGrants, RemoteStorageError } from "./storage";
+import type { StorageCommand } from "./storage";
 
 const API_BASE = "https://binary-calc-remote.binary-calc-remote.workers.dev";
 const PENDING_KEY = "binarycalc.remote.pending.v1";
@@ -146,11 +148,12 @@ export async function revokeThisDevice(): Promise<void> {
 }
 
 
-export interface RemoteDeviceCommand {
-  id: string;
-  type: "status";
-  payload: Record<string, never>;
-}
+export type RemoteDeviceCommand =
+  | { id: string; type: "status"; payload: Record<string, never> }
+  | { id: string; type: "list_granted_directory"; payload: { grantId: string; path: string } }
+  | { id: string; type: "create_directory"; payload: { grantId: string; parentPath: string; name: string } }
+  | { id: string; type: "create_text_file"; payload: { grantId: string; parentPath: string; name: string; content: string } }
+  | { id: string; type: "read_granted_file"; payload: { grantId: string; path: string } };
 
 export async function pollDeviceCommands(): Promise<number> {
   const token = await SecureStore.getItemAsync(DEVICE_TOKEN_KEY);
@@ -168,23 +171,45 @@ export async function pollDeviceCommands(): Promise<number> {
 
   let processed = 0;
   for (const command of result.commands) {
-    if (command.type === "status") {
-      const deviceStatus = {
-        platform: "android",
-        appVersion: "1.0.0",
-        clientState: "foreground_only",
-      };
+    try {
+      let commandResult: unknown;
+      if (command.type === "status") {
+        commandResult = {
+          platform: "android",
+          appVersion: "1.0.0",
+          clientState: "foreground_only",
+          grants: await listFolderGrants(),
+        };
+      } else {
+        commandResult = await executeStorageCommand(command as StorageCommand);
+      }
+
       await request("/api/device/ack", {
         method: "POST",
         token,
         body: {
           commandId: command.id,
           status: "completed",
-          result: JSON.stringify(deviceStatus),
+          result: JSON.stringify(commandResult),
         },
       });
-      processed += 1;
+    } catch (error) {
+      const code = error instanceof RemoteStorageError
+        ? error.code
+        : error instanceof RemoteApiError
+          ? error.code
+          : "command_execution_failed";
+      await request("/api/device/ack", {
+        method: "POST",
+        token,
+        body: {
+          commandId: command.id,
+          status: "failed",
+          result: JSON.stringify({ error: code }),
+        },
+      }).catch(() => undefined);
     }
+    processed += 1;
   }
   return processed;
 }
