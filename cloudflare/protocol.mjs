@@ -9,14 +9,14 @@ export const COMMAND_TYPES = Object.freeze([
 const MAX_TEXT_FILE_CHARS = 4_096;
 const MAX_COMMAND_JSON_CHARS = 8_192;
 const SAFE_ID = /^[A-Za-z0-9_-]{8,128}$/;
-const SAFE_NAME = /^(?!\\.\\.?$)[^\\u0000-\\u001f\\u007f/\\\\]{1,120}$/;
+const SAFE_NAME = /^(?!\.{1,2}$)[^\u0000-\u001f\u007f/\\]{1,120}$/;
 
 export function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function isValidPairCode(value) {
-  return typeof value === "string" && /^\\d{8}$/.test(value);
+  return typeof value === "string" && /^\d{8}$/.test(value);
 }
 
 export function isSafeGrantId(value) {
@@ -66,6 +66,6 @@ export function validateRemoteCommand(value) {
 
 export function sanitizeDeviceName(value) {
   if (typeof value !== "string") return "Android device";
-  const cleaned = value.replace(/[\\u0000-\\u001f\\u007f]/g, "").trim().slice(0, 48);
+  const cleaned = value.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 48);
   return cleaned || "Android device";
 }
