@@ -49,7 +49,7 @@ Core calculations and locally available learning content are designed to work **
 > **Add your application screenshot:** place an image of the app interface at `docs/image/App.png`. You can replace this path with your preferred filename.
 
 <p align="center">
-  <img src="docs/image/App.png" alt="Binary-Calc application interface preview — replace with an actual app screenshot" width="320" />
+  <img src="docs/image/App.jpg" alt="Binary-Calc application interface preview — replace with an actual app screenshot" width="320" />
 </p>
 
 <p align="center">
