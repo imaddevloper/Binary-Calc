@@ -123,6 +123,11 @@ export class RemoteHub extends DurableObject {
     let state = await this.loadState();
 
     if (route === "/api/pair/create" && request.method === "POST") {
+      const now = Date.now();
+      const pairLockUntil = (await this.ctx.storage.get("pair-lock-until")) || 0;
+      const lastPairCreateAt = (await this.ctx.storage.get("pair-create-at")) || 0;
+      if (pairLockUntil > now) return json({ error: "pairing_temporarily_locked" }, 429);
+      if (lastPairCreateAt > now - 30_000) return json({ error: "pairing_rate_limited" }, 429);
       if (state && !state.revoked && state.pairedAt) {
         return json({ error: "device_already_paired", action: "revoke_existing_pairing_first" }, 409);
       }
@@ -133,6 +138,7 @@ export class RemoteHub extends DurableObject {
       if (parsed.error || !isRecord(parsed.value)) return json({ error: "invalid_request" }, 400);
       const code = randomPairCode();
       const pendingSecret = randomToken();
+      await this.ctx.storage.put("pair-create-at", now);
       state = {
         deviceName: sanitizeDeviceName(parsed.value.deviceName),
         pairCodeHash: await hash(code),
@@ -163,7 +169,10 @@ export class RemoteHub extends DurableObject {
       const suppliedHash = await hash(value.pairCode);
       if (!equalHash(suppliedHash, state.pairCodeHash)) {
         state.failedAttempts += 1;
-        if (state.failedAttempts >= 5) state.pendingExpiresAt = 0;
+        if (state.failedAttempts >= 5) {
+          state.pendingExpiresAt = 0;
+          await this.ctx.storage.put("pair-lock-until", Date.now() + 10 * 60_000);
+        }
         await this.saveState(state);
         return json({ error: "invalid_pair_code" }, state.failedAttempts >= 5 ? 429 : 401);
       }
