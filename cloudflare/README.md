@@ -18,16 +18,16 @@ This directory contains the source for the Cloudflare Worker currently used by t
 5. `GET /api/device/commands` — the authenticated phone retrieves queued commands.
 6. `POST /api/device/ack` — the phone reports completion, failure, or a need for user approval.
 7. `GET /api/controller/commands` — controller checks device heartbeat and command results.
-8. `POST /api/controller/revoke` — revoke the current pairing.
+8. `POST /api/controller/revoke` — revoke the current pairing from the browser.
+9. `POST /api/device/unpair` — revoke the current pairing from the phone.
 
-All token values are returned once and must be stored in platform secure storage. Only SHA-256 hashes are persisted by the Durable Object. Pairing codes expire after five minutes and allow at most five incorrect attempts.
+The device token is returned once and stored in Android SecureStore. The controller token is returned once and kept in the browser tab's session storage. Only SHA-256 hashes are persisted by the Durable Object. Pairing codes expire after five minutes and allow at most five incorrect attempts.
 
 ## Command safety boundary
 
 The backend accepts only these command names:
 
 - `status`
-
 
 The server currently accepts only `status`, because that is the only command implemented by the mobile client. File listing, file creation, and file reading remain disabled until Android Storage Access Framework grants are implemented and tested. The server does not execute shell commands or access a phone filesystem. Future file operations must resolve opaque grant IDs only through user-selected SAF URIs and must never access other apps' private data or protected system files.
 
@@ -56,4 +56,4 @@ A powered-off phone cannot receive commands. Android may also pause background w
 
 ## Testing
 
-Run `npm test` from the repository root. Protocol tests cover pairing-code format, command allowlisting, grant identifiers, safe names, and bounded text payloads.
+Run `npm test` from the repository root. Protocol tests cover pairing-code format, strict command allowlisting, safe grant identifiers and file names, and device-name sanitization.
