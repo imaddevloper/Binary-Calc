@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AppState, Linking, Platform, View } from "react-native";
 import Constants from "expo-constants";
 import * as Clipboard from "expo-clipboard";
@@ -35,25 +35,32 @@ export default function RemoteScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
-
-  const refresh = useCallback(async () => {
-    setError(null);
-    const [isPaired, pendingPairing] = await Promise.all([
-      hasPairedDevice(),
-      loadPendingPairing(),
-    ]);
-    setPaired(isPaired);
-    setPending(pendingPairing);
-  }, []);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
 
   useEffect(() => {
-    void refresh().catch(() => setError(t("remote.loadFailed")));
-  }, [refresh, t]);
+    let alive = true;
+    void Promise.all([hasPairedDevice(), loadPendingPairing()])
+      .then(([isPaired, pendingPairing]) => {
+        if (!alive) return;
+        setPaired(isPaired);
+        setPending(pendingPairing);
+        setRemainingSeconds(pendingPairing ? Math.max(0, Math.ceil((pendingPairing.expiresAt - Date.now()) / 1000)) : 0);
+      })
+      .catch(() => {
+        if (alive) setError(t("remote.loadFailed"));
+      });
+    return () => { alive = false; };
+  }, [t]);
+
   useEffect(() => {
-    if (!paired) {
-      setLastSyncAt(null);
-      return;
-    }
+    if (!pending) return;
+    const interval = setInterval(() => {
+      setRemainingSeconds(Math.max(0, Math.ceil((pending.expiresAt - Date.now()) / 1000)));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [pending]);
+  useEffect(() => {
+    if (!paired) return;
 
     let alive = true;
     const poll = async () => {
@@ -68,6 +75,7 @@ export default function RemoteScreen() {
         if (!alive) return;
         if (cause instanceof RemoteApiError && ["unauthorized", "not_paired"].includes(cause.code)) {
           setPaired(false);
+          setLastSyncAt(null);
         }
         setError(errorMessage(cause, t));
       }
@@ -93,6 +101,8 @@ export default function RemoteScreen() {
       const deviceName = Constants.deviceName || (Platform.OS === "android" ? "Android device" : "Mobile device");
       const created = await createPairingSession(deviceName);
       setPending(created);
+      setRemainingSeconds(Math.max(0, Math.ceil((created.expiresAt - Date.now()) / 1000)));
+      setLastSyncAt(null);
       setPaired(false);
     } catch (cause) {
       setError(errorMessage(cause, t));
@@ -107,6 +117,7 @@ export default function RemoteScreen() {
     try {
       await completePendingPairing();
       setPending(null);
+      setRemainingSeconds(0);
       setPaired(true);
       toast.show(t("remote.pairedToast"));
     } catch (cause) {
@@ -122,6 +133,8 @@ export default function RemoteScreen() {
     try {
       await revokeThisDevice();
       setPending(null);
+      setRemainingSeconds(0);
+      setLastSyncAt(null);
       setPaired(false);
       toast.show(t("remote.disconnectedToast"));
     } catch (cause) {
@@ -144,8 +157,6 @@ export default function RemoteScreen() {
       setError(t("remote.openDashboardFailed"));
     }
   };
-
-  const remainingSeconds = pending ? Math.max(0, Math.ceil((pending.expiresAt - Date.now()) / 1000)) : 0;
 
   return (
     <Screen header={<AppHeader back title={t("remote.title")} />}>
