@@ -16,7 +16,9 @@
         "monochromeImage": "./assets/adaptive-icon-mono.png",
         "backgroundColor": "#0B0B0F"
       },
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
@@ -25,7 +27,9 @@
         "android.permission.READ_MEDIA_VIDEO"
       ]
     },
-    "web": { "favicon": "./assets/favicon.png" },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
       "expo-router",
       "expo-localization",
@@ -52,8 +56,17 @@
           "photosPermission": "Binary Calculator reads an image only when you choose one to scan for an IPv4 address."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ],
+      "expo-file-system"
     ],
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }
