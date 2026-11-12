@@ -27,12 +27,9 @@ All token values are returned once and must be stored in platform secure storage
 The backend accepts only these command names:
 
 - `status`
-- `list_granted_directory`
-- `create_directory`
-- `create_text_file`
-- `read_granted_file`
 
-The server does not execute shell commands and does not access a phone filesystem. The future Android client must resolve opaque grant IDs only through user-selected SAF URIs. It must not access other apps' private data or protected system files. Destructive actions are intentionally absent from this first protocol phase.
+
+The server currently accepts only `status`, because that is the only command implemented by the mobile client. File listing, file creation, and file reading remain disabled until Android Storage Access Framework grants are implemented and tested. The server does not execute shell commands or access a phone filesystem. Future file operations must resolve opaque grant IDs only through user-selected SAF URIs and must never access other apps' private data or protected system files.
 
 ## Deployment requirements
 
