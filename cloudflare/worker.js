@@ -323,7 +323,7 @@ export class RemoteHub extends DurableObject {
       if (command.status !== "queued") return json({ error: "command_already_finished" }, 409);
       command.status = value.status;
       command.completedAt = Date.now();
-      command.result = typeof value.result === "string" ? value.result.slice(0, 1_000) : null;
+      command.result = typeof value.result === "string" ? value.result.slice(0, 4_000) : null;
       state.deviceLastSeenAt = Date.now();
       await this.saveState(state);
       return json({ acknowledged: true, commandId: command.id, status: command.status });
