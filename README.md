@@ -1,12 +1,12 @@
 <!--
   README IMAGE PLACEHOLDERS
-  1) Add your app icon at: docs/images/app-icon.png
-  2) Add an in-app screenshot at: docs/images/app-screenshot.png
+  1) Add your app icon at: docs/image/icon.png
+  2) Add an in-app screenshot at: docs/image/App.png
   Keep these paths, or update the image paths below to match your files.
 -->
 
 <p align="center">
-  <img src="docs/images/app-icon.png" alt="Binary-Calc app icon" width="160" />
+  <img src="docs/image/icon.png" alt="Binary-Calc app icon" width="160" />
 </p>
 
 <h1 align="center">Binary-Calc</h1>
@@ -46,10 +46,10 @@ Core calculations and locally available learning content are designed to work **
 
 ## Screenshots
 
-> **Add your application screenshot:** place an image of the app interface at `docs/images/app-screenshot.png`. You can replace this path with your preferred filename.
+> **Add your application screenshot:** place an image of the app interface at `docs/image/App.png`. You can replace this path with your preferred filename.
 
 <p align="center">
-  <img src="docs/images/app-screenshot.png" alt="Binary-Calc application interface preview — replace with an actual app screenshot" width="320" />
+  <img src="docs/image/App.png" alt="Binary-Calc application interface preview — replace with an actual app screenshot" width="320" />
 </p>
 
 <p align="center">
@@ -177,12 +177,12 @@ Suggested structure:
 ```text
 docs/
 └── images/
-    ├── app-icon.png
-    └── app-screenshot.png
+    ├── icon.png
+    └── App.png
 ```
 
-- `app-icon.png`: the application icon displayed at the top of this README.
-- `app-screenshot.png`: a genuine screenshot showing the application interface.
+- `icon.png`: the application icon displayed at the top of this README.
+- `App.png`: a genuine screenshot showing the application interface.
 
 Use screenshots captured from the actual application. Avoid mockups that could misrepresent the shipped UI.
 
