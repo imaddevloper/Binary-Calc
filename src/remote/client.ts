@@ -128,11 +128,18 @@ export async function revokeThisDevice(): Promise<void> {
     return;
   }
 
-  await request<{ revoked: boolean }>("/api/device/unpair", {
-    method: "POST",
-    body: {},
-    token,
-  });
+  try {
+    await request<{ revoked: boolean }>("/api/device/unpair", {
+      method: "POST",
+      body: {},
+      token,
+    });
+  } catch (error) {
+    // A controller may already have revoked the pairing. Clear the stale local credential.
+    if (!(error instanceof RemoteApiError) || !["unauthorized", "not_paired"].includes(error.code)) {
+      throw error;
+    }
+  }
 
   await SecureStore.deleteItemAsync(DEVICE_TOKEN_KEY);
   await SecureStore.deleteItemAsync(PENDING_KEY);
