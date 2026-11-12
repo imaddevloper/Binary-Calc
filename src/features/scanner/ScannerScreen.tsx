@@ -117,7 +117,7 @@ export function ScannerScreen() {
     setStage('review');
   }, [router, t]);
 
-  const pickFromGallery = async () => {
+  const pickFromGallery = useCallback(async () => {
     setFromGallery(true);
     try {
       // The system photo picker needs no storage permission.
@@ -137,7 +137,7 @@ export function ScannerScreen() {
       setMessage(t('scan.pickFailed'));
       setStage('review');
     }
-  };
+  }, [permission, runOcr, source, t, uri]);
 
   // Opened via "Import image": go straight to the picker once.
   // pickFromGallery is intentionally invoked once per route entry; pickedOnce prevents duplicate launches.
