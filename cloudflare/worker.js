@@ -82,8 +82,10 @@ export default {
         protocol: "v1",
         pairing: "available",
         command_queue: "available",
-        file_transfer: "not_enabled_until_android_storage_grants",
-        storage: "durable-object-metadata-only",
+        scoped_folder_operations: "available_after_explicit_android_folder_grant",
+        binary_file_transfer: "disabled",
+        background_delivery: "foreground_remote_screen_only",
+        storage: "no_persistent_file_archive",
       });
     }
 
