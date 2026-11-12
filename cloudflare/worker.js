@@ -133,7 +133,6 @@ export class RemoteHub extends DurableObject {
     return operation;
   }
 
-  async handle(request) {
   async loadState() {
     return (await this.ctx.storage.get("remote-state")) || null;
   }
@@ -142,7 +141,7 @@ export class RemoteHub extends DurableObject {
     await this.ctx.storage.put("remote-state", state);
   }
 
-  async fetch(request) {
+  async handle(request) {
     const url = new URL(request.url);
     const route = url.pathname;
     let state = await this.loadState();
