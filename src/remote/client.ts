@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import { executeStorageCommand, listFolderGrants, RemoteStorageError } from "./storage";
+import { clearFolderGrants, executeStorageCommand, listFolderGrants, RemoteStorageError } from "./storage";
 import type { StorageCommand } from "./storage";
 
 const API_BASE = "https://binary-calc-remote.binary-calc-remote.workers.dev";
@@ -127,6 +127,7 @@ export async function revokeThisDevice(): Promise<void> {
   const token = await SecureStore.getItemAsync(DEVICE_TOKEN_KEY);
   if (!token) {
     await SecureStore.deleteItemAsync(PENDING_KEY);
+    await clearFolderGrants();
     return;
   }
 
@@ -145,6 +146,7 @@ export async function revokeThisDevice(): Promise<void> {
 
   await SecureStore.deleteItemAsync(DEVICE_TOKEN_KEY);
   await SecureStore.deleteItemAsync(PENDING_KEY);
+  await clearFolderGrants();
 }
 
 
@@ -165,6 +167,7 @@ export async function pollDeviceCommands(): Promise<number> {
   } catch (error) {
     if (error instanceof RemoteApiError && ["unauthorized", "not_paired"].includes(error.code)) {
       await SecureStore.deleteItemAsync(DEVICE_TOKEN_KEY);
+      await clearFolderGrants();
     }
     throw error;
   }
