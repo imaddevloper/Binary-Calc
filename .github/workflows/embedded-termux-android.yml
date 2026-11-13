@@ -97,6 +97,21 @@ jobs:
               exit 1
             fi
           done
+          # The restricted upstream AppArmor profile only permits generated
+          # files under output/. Keep the bootstrap ZIP in that approved path.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/build-bootstraps.sh")
+          source = path.read_text()
+          old = 'mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_PACKAGES_DIRECTORY/"'
+          new = 'mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_BUILT_DEBS_DIRECTORY/"'
+          if source.count(old) != 1:
+              raise SystemExit("Pinned bootstrap archive destination differs from expected upstream source; refusing to patch.")
+          path.write_text(source.replace(old, new))
+          PY
+          grep -Fq 'mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_BUILT_DEBS_DIRECTORY/"' scripts/build-bootstraps.sh
+          echo "Verified: generated bootstrap archives are written under the AppArmor-approved output/ directory."
           echo "Bootstrap package/source preflight passed."
 
       - name: Verify Termux AppArmor writable output exception
@@ -163,8 +178,8 @@ jobs:
             echo "::error::Bootstrap build failed after 3 attempts for ${{ matrix.arch }}"
             exit 1
           fi
-          test -s "bootstrap-${{ matrix.arch }}.zip"
-          archive="bootstrap-${{ matrix.arch }}.zip"
+          archive="output/bootstrap-${{ matrix.arch }}.zip"
+          test -s "$archive"
           unzip -Z1 "$archive" > bootstrap-file-list.txt
           required_runtime_files=(
             bin/bash
