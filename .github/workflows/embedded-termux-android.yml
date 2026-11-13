@@ -71,7 +71,7 @@ jobs:
           mkdir -p ../termux-bootstrap-artifacts
           cp "bootstrap-${{ matrix.arch }}.zip" ../termux-bootstrap-artifacts/
           bash ../scripts/generate-termux-bootstrap-notices.sh "$PWD" "${{ matrix.arch }}" "../termux-bootstrap-artifacts/termux-bootstrap-packages-${{ matrix.arch }}.csv"
-          git rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit.txt
+          git rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt
 
       - name: Upload custom bootstrap
         uses: actions/upload-artifact@v4
@@ -105,9 +105,9 @@ jobs:
           mv bootstrap-aarch64.zip termux-bootstrap-aarch64.zip
           mv bootstrap-arm.zip termux-bootstrap-arm.zip
           sha256sum termux-bootstrap-*.zip
-          cp LICENSE BinaryCalc-GPL-3.0.txt
-          cp LICENSES/Apache-2.0.txt Apache-2.0.txt
-          cp NOTICE NOTICE.txt
+          cp "$GITHUB_WORKSPACE/LICENSE" BinaryCalc-GPL-3.0.txt
+          cp "$GITHUB_WORKSPACE/LICENSES/Apache-2.0.txt" Apache-2.0.txt
+          cp "$GITHUB_WORKSPACE/NOTICE" NOTICE.txt
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
