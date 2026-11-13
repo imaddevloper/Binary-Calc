@@ -40,6 +40,10 @@ export default function RemoteScreen() {
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setError(null);
+      if (!nextSession?.user?.id) {
+        setDeviceId(null);
+        setFolders([]);
+      }
     });
     return () => {
       alive = false;
@@ -52,15 +56,14 @@ export default function RemoteScreen() {
   }, []);
 
   useEffect(() => {
-    if (!session?.user?.id) {
-      setDeviceId(null);
-      setFolders([]);
-      return;
-    }
+    if (!session?.user?.id) return;
     let alive = true;
-    setBusy(true);
-    setMessage("تسجيل هذا الهاتف في حسابك...");
-    void registerCurrentDevice()
+    void Promise.resolve().then(() => {
+      if (!alive) return;
+      setBusy(true);
+      setMessage("تسجيل هذا الهاتف في حسابك...");
+      return registerCurrentDevice();
+    })
       .then(async (id) => {
         if (!alive) return;
         setDeviceId(id);
