@@ -3,8 +3,9 @@ import { AppState, Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "https://cmaddeurguhfywiuqvax.supabase.co";
+// Publishable client key only. RLS remains the authorization boundary.
+const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_kmwA8yXWnjaYgYu6w5Kd_Q_LfFqAqiO";
 
 if (!supabaseUrl || !supabasePublishableKey) {
   console.warn("[Binary-Calc] Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
