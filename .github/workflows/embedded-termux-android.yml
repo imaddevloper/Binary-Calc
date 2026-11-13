@@ -84,6 +84,38 @@ jobs:
           fi
           echo "Verified bootstrap compression package against pinned Termux sources."
 
+      - name: Reconcile bootstrap package names with pinned upstream sources
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          # In this pinned Termux revision, the bootstrap still requests the
+          # old package name "bzip2", but its source package is now "libbz2".
+          # libbz2 produces the required bzip2 subpackage.
+          test -f packages/libbz2/build.sh
+          test -f packages/libbz2/bzip2.subpackage.sh
+          grep -Fq 'PACKAGES+=("bzip2")' scripts/build-bootstraps.sh
+          sed -i 's/PACKAGES+=("bzip2")/PACKAGES+=("libbz2")/' scripts/build-bootstraps.sh
+          grep -Fq 'PACKAGES+=("libbz2")' scripts/build-bootstraps.sh
+          if grep -Fq 'PACKAGES+=("bzip2")' scripts/build-bootstraps.sh; then
+            echo "::error::Stale bzip2 bootstrap package reference remains."
+            exit 1
+          fi
+          # Fail early if another pinned bootstrap package was renamed or removed.
+          required_packages=(
+            apt bash libbz2 command-not-found coreutils dash diffutils findutils
+            gawk grep gzip less procps psmisc sed tar termux-core termux-exec
+            termux-keyring termux-tools util-linux ed debianutils dos2unix
+            inetutils lsof nano net-tools patch unzip
+          )
+          for package in "${required_packages[@]}"; do
+            if [[ ! -f "packages/${package}/build.sh" ]]; then
+              echo "::error::Pinned Termux source is missing packages/${package}/build.sh"
+              exit 1
+            fi
+          done
+          echo "Bootstrap package/source preflight passed."
+
       - name: Build the official apt-android-7 bootstrap from pinned Termux sources
         working-directory: termux-packages
         shell: bash
