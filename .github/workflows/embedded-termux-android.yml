@@ -99,6 +99,56 @@ jobs:
           done
           echo "Bootstrap package/source preflight passed."
 
+      - name: Fix Docker builder UID/GID reconciliation
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/run-docker.sh")
+          source = path.read_text()
+          old = 'if [ $(id -u) -ne 1001 -a $(id -u) -ne 0 ]; then'
+          new = 'if [ "$(id -u)" -ne 0 ] && { [ "$(id -u)" -ne 1001 ] || [ "$(id -g)" -ne 1001 ]; }; then'
+          count = source.count(old)
+          if count != 1:
+              raise SystemExit(
+                  f"Expected exactly one upstream UID-only guard, found {count}; refusing an unsafe patch."
+              )
+          path.write_text(source.replace(old, new))
+          PY
+          expected='if [ "$(id -u)" -ne 0 ] && { [ "$(id -u)" -ne 1001 ] || [ "$(id -g)" -ne 1001 ]; }; then'
+          grep -Fq "$expected" scripts/run-docker.sh
+          bash -n scripts/run-docker.sh
+          echo "Verified: Docker builder reconciliation now checks both host UID and host GID."
+
+      - name: Independently verify Docker bind-mount write permissions
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe=".uid-gid-write-probe-${{ matrix.arch }}"
+          rm -f "$probe"
+          echo "Host identity: $(id -u):$(id -g)"
+          # This invokes the real patched upstream run-docker.sh, but runs only
+          # a tiny write probe; the multi-hour bootstrap has not started yet.
+          timeout 10m ./scripts/run-docker.sh bash -lc '
+            set -euo pipefail
+            printf "docker-write-ok\\n" > ".uid-gid-write-probe-${{ matrix.arch }}"
+            test -s ".uid-gid-write-probe-${{ matrix.arch }}"
+            printf "Container identity: %s:%s\\n" "$(id -u)" "$(id -g)"
+            printf "Mounted directory identity: %s:%s\\n" "$(stat -c %u:%g .)"
+            test "$(id -u)" = "$(stat -c %u .)"
+            test "$(id -g)" = "$(stat -c %g .)"
+          '
+          test -s "$probe"
+          grep -Fxq "docker-write-ok" "$probe"
+          test "$(stat -c %u "$probe")" = "$(id -u)"
+          test "$(stat -c %g "$probe")" = "$(id -g)"
+          rm -f "$probe"
+          echo "PASS: container wrote to the bind mount and host UID/GID ownership matches."
+
       - name: Build the official apt-android-7 bootstrap from pinned Termux sources
         working-directory: termux-packages
         shell: bash
@@ -132,7 +182,7 @@ jobs:
           cp "bootstrap-${{ matrix.arch }}.zip" ../termux-bootstrap-artifacts/
           sha256sum "bootstrap-${{ matrix.arch }}.zip" | awk '{print $1}' > "../termux-bootstrap-artifacts/bootstrap-${{ matrix.arch }}.zip.sha256"
           bash ../scripts/generate-termux-bootstrap-notices.sh "$PWD" "${{ matrix.arch }}" "../termux-bootstrap-artifacts/termux-bootstrap-packages-${{ matrix.arch }}.csv"
-          git rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt
+          git rev-parse HEAD > "../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt"
 
       - name: Upload custom bootstrap
         uses: actions/upload-artifact@v4
