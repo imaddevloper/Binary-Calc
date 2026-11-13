@@ -1,0 +1,126 @@
+name: Embedded Termux Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/embedded-termux-engine
+    paths:
+      - ".github/workflows/embedded-termux-android.yml"
+      - "app.json"
+      - "plugins/withEmbeddedTermux.js"
+      - "modules/embedded-termux/**"
+      - "src/features/terminal/**"
+      - "src/i18n/**"
+      - "package.json"
+      - "package-lock.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: embedded-termux-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Build Termux Bootstrap (${{ matrix.arch }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - aarch64
+          - arm
+    steps:
+      - name: Checkout Binary-Calc
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Termux packages source
+        uses: actions/checkout@v4
+        with:
+          repository: termux/termux-packages
+          ref: 46ca3fd5a25d42615e7f4cc12c2f7b38c0bdb070
+          path: termux-packages
+
+      - name: Configure the app-specific Termux prefix
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i 's/^TERMUX_APP__PACKAGE_NAME="com.termux"$/TERMUX_APP__PACKAGE_NAME="com.binarycalculator.app"/' scripts/properties.sh
+          grep -Fx 'TERMUX_APP__PACKAGE_NAME="com.binarycalculator.app"' scripts/properties.sh
+          echo "Configured private prefix: /data/data/com.binarycalculator.app/files/usr"
+
+      - name: Build Android 10+ bootstrap from pinned Termux sources
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --android10 -f --architectures "${{ matrix.arch }}"
+          test -s "bootstrap-${{ matrix.arch }}.zip"
+          sha256sum "bootstrap-${{ matrix.arch }}.zip"
+
+      - name: Upload custom bootstrap
+        uses: actions/upload-artifact@v4
+        with:
+          name: termux-bootstrap-${{ matrix.arch }}
+          path: termux-packages/bootstrap-${{ matrix.arch }}.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  android:
+    name: Build Binary-Calc with embedded Termux
+    runs-on: ubuntu-24.04
+    needs: bootstrap
+    timeout-minutes: 120
+    steps:
+      - name: Checkout Binary-Calc
+        uses: actions/checkout@v4
+
+      - name: Download custom bootstrap archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: termux-bootstrap-*
+          merge-multiple: true
+          path: modules/embedded-termux/android/src/main/assets
+
+      - name: Verify and rename bootstrap assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd modules/embedded-termux/android/src/main/assets
+          mv bootstrap-aarch64.zip termux-bootstrap-aarch64.zip
+          mv bootstrap-arm.zip termux-bootstrap-arm.zip
+          sha256sum termux-bootstrap-*.zip
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Generate Android native project
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-calc-embedded-termux-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
