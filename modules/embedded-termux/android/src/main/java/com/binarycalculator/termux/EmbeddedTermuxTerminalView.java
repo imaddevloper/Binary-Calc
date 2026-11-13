@@ -98,6 +98,7 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
                 2000,
                 this
             );
+            EmbeddedTermuxSessionHolder.set(session);
             attachSession(session);
             requestFocus();
         } catch (Exception error) {
@@ -110,6 +111,7 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
         if (session != null) {
             session.finishIfRunning();
         }
+        if (session != null) EmbeddedTermuxSessionHolder.clear(session);
         session = null;
         sessionStartRequested = false;
     }
@@ -125,6 +127,7 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
     @Override public void onTitleChanged(TerminalSession changedSession) { post(this::onScreenUpdated); }
     @Override public void onSessionFinished(TerminalSession finishedSession) {
         if (session == finishedSession) {
+            EmbeddedTermuxSessionHolder.clear(session);
             session = null;
             sessionStartRequested = false;
             post(this::invalidate);
