@@ -127,6 +127,7 @@ final class TermuxBootstrapInstaller {
             throw new IllegalStateException("The Termux bootstrap is missing SYMLINKS.txt.");
         }
 
+        boolean prefixActivated = false;
         try {
             for (String[] item : symlinks) {
                 File link = resolveInside(staging, item[1]);
@@ -148,11 +149,15 @@ final class TermuxBootstrapInstaller {
             if (!staging.renameTo(prefix)) {
                 throw new IllegalStateException("Could not atomically activate the Termux bootstrap.");
             }
+            prefixActivated = true;
             if (!isInstalled(context)) {
                 throw new IllegalStateException("Termux bootstrap was extracted but bash/apt validation failed.");
             }
         } catch (Exception error) {
             deleteRecursively(staging);
+            // Roll back a newly activated but invalid prefix so a later retry can recover.
+            // Existing user prefixes are never removed: installation rejects them before extraction.
+            if (prefixActivated) deleteRecursively(prefix);
             throw error;
         }
     }
