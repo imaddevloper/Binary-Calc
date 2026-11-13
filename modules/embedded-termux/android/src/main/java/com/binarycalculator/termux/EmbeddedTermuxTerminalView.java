@@ -127,13 +127,6 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
         sessionStartRequested = false;
     }
 
-    @Override
-    protected void onDetachedFromWindow() {
-        // A tab screen remains mounted during normal navigation. If Android destroys the
-        // native view, stop the PTY instead of leaving an orphan shell process.
-        super.onDetachedFromWindow();
-    }
-
     @Override public void onTextChanged(TerminalSession changedSession) { post(this::onScreenUpdated); }
     @Override public void onTitleChanged(TerminalSession changedSession) { post(this::onScreenUpdated); }
     @Override public void onSessionFinished(TerminalSession finishedSession) {
