@@ -23,8 +23,14 @@ final class TermuxBootstrapInstaller {
 
     private TermuxBootstrapInstaller() {}
 
+    static File getFilesRoot(Context context) {
+        String path = context.getFilesDir().getAbsolutePath()
+            .replaceFirst("^/data/user/0/", "/data/data/");
+        return new File(path);
+    }
+
     static File getPrefix(Context context) {
-        return new File(context.getFilesDir(), PREFIX_NAME);
+        return new File(getFilesRoot(context), PREFIX_NAME);
     }
 
     static String getSupportedArchitecture() {
@@ -46,7 +52,7 @@ final class TermuxBootstrapInstaller {
 
         String arch = getSupportedArchitecture();
         String assetName = "termux-bootstrap-" + arch + ".zip";
-        File files = context.getFilesDir();
+        File files = getFilesRoot(context);
         File staging = new File(files, STAGING_NAME);
         File prefix = getPrefix(context);
 
