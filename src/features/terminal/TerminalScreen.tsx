@@ -23,7 +23,7 @@ interface EmbeddedTermuxBridge {
 }
 
 export function TerminalScreen() {
-  const { t, isRTL } = useI18n();
+  const { t } = useI18n();
   const { colors } = useTheme();
   const [status, setStatus] = useState<RuntimeStatus>('checking');
   const [architecture, setArchitecture] = useState('');
