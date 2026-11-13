@@ -95,13 +95,30 @@ export default function RemoteScreen() {
     };
     void sync();
     const interval = setInterval(() => void sync(), 15_000);
-    const subscription = AppState.addEventListener("change", (state) => {
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
       if (state === "active") void sync();
     });
+    // Realtime provides immediate foreground delivery; polling remains a fallback.
+    const commandChannel = supabase
+      .channel(`remote-commands-${deviceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "remote_commands",
+          filter: `device_id=eq.${deviceId}`,
+        },
+        () => {
+          if (AppState.currentState === "active") void sync();
+        },
+      )
+      .subscribe();
     return () => {
       alive = false;
       clearInterval(interval);
-      subscription.remove();
+      appStateSubscription.remove();
+      void supabase.removeChannel(commandChannel);
     };
   }, [session?.user?.id, deviceId]);
 
