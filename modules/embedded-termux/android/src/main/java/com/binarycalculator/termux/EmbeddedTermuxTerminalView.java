@@ -55,6 +55,16 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
         }
 
         try {
+            TerminalSession existingSession = EmbeddedTermuxSessionHolder.getRunning();
+            if (existingSession != null) {
+                session = existingSession;
+                session.updateTerminalSessionClient(this);
+                sessionStartRequested = true;
+                attachSession(existingSession);
+                requestFocus();
+                return;
+            }
+
             File files = TermuxBootstrapInstaller.getFilesRoot(getContext());
             File prefix = TermuxBootstrapInstaller.getPrefix(getContext());
             File home = new File(files, "home");
@@ -107,12 +117,9 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
         }
     }
 
-    void closeSession() {
-        if (session != null) {
-            session.finishIfRunning();
-        }
-        if (session != null) EmbeddedTermuxSessionHolder.clear(session);
-        session = null;
+    void detachSession() {
+        // Keep the PTY alive while the user navigates between app routes.
+        // The next terminal view reattaches and becomes the session callback client.
         sessionStartRequested = false;
     }
 
