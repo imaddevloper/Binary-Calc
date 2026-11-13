@@ -19,7 +19,10 @@ import com.termux.terminal.TerminalSessionClient;
 import com.termux.view.TerminalView;
 import com.termux.view.TerminalViewClient;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
 final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalSessionClient, TerminalViewClient {
@@ -105,6 +108,8 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
                 "TERMUX__USER_ID=" + userId,
                 "TERMUX__HOME=" + home.getAbsolutePath(),
                 "TERMUX__PREFIX=" + prefix.getAbsolutePath(),
+                "TERMUX__SE_PROCESS_CONTEXT=" + readProcessContext(),
+                "TERMUX_APP__SE_PROCESS_CONTEXT=" + readProcessContext(),
                 "ANDROID__BUILD_VERSION_SDK=" + Build.VERSION.SDK_INT
             };
             boolean useSystemLinker = Build.VERSION.SDK_INT >= 29;
@@ -127,6 +132,16 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
         } catch (Exception error) {
             sessionStartRequested = false;
             Log.e(TAG, "Could not start embedded Termux session.", error);
+        }
+    }
+
+    private static String readProcessContext() {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new FileInputStream("/proc/self/attr/current"), StandardCharsets.UTF_8))) {
+            String value = reader.readLine();
+            return value == null ? "" : value.trim();
+        } catch (Exception ignored) {
+            return "";
         }
     }
 
