@@ -53,7 +53,7 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
         }
 
         try {
-            File files = getContext().getFilesDir();
+            File files = TermuxBootstrapInstaller.getFilesRoot(getContext());
             File prefix = TermuxBootstrapInstaller.getPrefix(getContext());
             File home = new File(files, "home");
             File bash = new File(prefix, "bin/bash");
@@ -88,10 +88,18 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
         }
     }
 
+    void closeSession() {
+        if (session != null && session.isRunning()) {
+            session.finishIfRunning();
+        }
+        session = null;
+        sessionStartRequested = false;
+    }
+
     @Override
     protected void onDetachedFromWindow() {
-        // The tab navigator normally keeps this view mounted. If Android destroys it,
-        // stop the PTY rather than leaving an orphan process behind.
+        // A tab screen remains mounted during normal navigation. If Android destroys the
+        // native view, stop the PTY instead of leaving an orphan shell process.
         super.onDetachedFromWindow();
     }
 
