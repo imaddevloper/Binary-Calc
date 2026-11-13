@@ -109,17 +109,18 @@ jobs:
 
           path = Path("scripts/run-docker.sh")
           source = path.read_text()
-          old = 'if [ $(id -u) -ne 1001 -a $(id -u) -ne 0 ]; then'
-          new = 'if [ "$(id -u)" -ne 0 ] && { [ "$(id -u)" -ne 1001 ] || [ "$(id -g)" -ne 1001 ]; }; then'
-          count = source.count(old)
-          if count != 1:
-              raise SystemExit(
-                  f"Expected exactly one upstream UID-only guard, found {count}; refusing an unsafe patch."
-              )
-          path.write_text(source.replace(old, new))
+          old_guard = 'if [ $(id -u) -ne 1001 -a $(id -u) -ne 0 ]; then'
+          new_guard = 'if [ "$(id -u)" -ne 0 ] && { [ "$(id -u)" -ne 1001 ] || [ "$(id -g)" -ne 1001 ]; }; then'
+          old_groupmod = 'sudo groupmod -g $(id -g) builder'
+          new_groupmod = 'sudo groupmod -o -g $(id -g) builder'
+          if source.count(old_guard) != 1 or source.count(old_groupmod) != 1:
+              raise SystemExit("Pinned upstream UID/GID code differs from the expected source; refusing an unsafe patch.")
+          source = source.replace(old_guard, new_guard).replace(old_groupmod, new_groupmod)
+          path.write_text(source)
           PY
           expected='if [ "$(id -u)" -ne 0 ] && { [ "$(id -u)" -ne 1001 ] || [ "$(id -g)" -ne 1001 ]; }; then'
           grep -Fq "$expected" scripts/run-docker.sh
+          grep -Fq 'sudo groupmod -o -g $(id -g) builder' scripts/run-docker.sh
           bash -n scripts/run-docker.sh
           echo "Verified: Docker builder reconciliation now checks both host UID and host GID."
 
@@ -182,7 +183,7 @@ jobs:
           cp "bootstrap-${{ matrix.arch }}.zip" ../termux-bootstrap-artifacts/
           sha256sum "bootstrap-${{ matrix.arch }}.zip" | awk '{print $1}' > "../termux-bootstrap-artifacts/bootstrap-${{ matrix.arch }}.zip.sha256"
           bash ../scripts/generate-termux-bootstrap-notices.sh "$PWD" "${{ matrix.arch }}" "../termux-bootstrap-artifacts/termux-bootstrap-packages-${{ matrix.arch }}.csv"
-          git rev-parse HEAD > "../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt"
+          git rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt"
 
       - name: Upload custom bootstrap
         uses: actions/upload-artifact@v4
