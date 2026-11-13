@@ -25,7 +25,8 @@ Status: native integration and bootstrap pipeline implemented on `feature/embedd
    - GitHub Actions builds the upstream `apt-android-7` bootstrap for `aarch64` and `arm` from pinned `termux-packages` source, changing the build prefix/package identity to `com.binarycalculator.app`.
    - Bootstrap archives are transferred as workflow artifacts, checksum manifests are packaged beside them, and the Android installer verifies SHA-256 before extraction.
    - First-run extraction is staged under app-private storage, validates archive paths, restores symlinks, activates by rename and marks managed prefixes for interrupted-install recovery.
-   - Existing unmarked user data is not overwritten when an invalid prefix is encountered.
+   - The installer explicitly runs the upstream second-stage package maintainer scripts through the Android system linker when required, then checks Bash, apt, dpkg, `pkg`, `id` and `uname` before declaring the runtime ready.
+   - Existing user data is not overwritten when an unrecognized or damaged prefix is encountered.
 
 4. **Android executable loading**
    - The app keeps Expo SDK 58's modern target SDK instead of lowering it to API 28.
