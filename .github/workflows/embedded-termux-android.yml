@@ -68,12 +68,16 @@ jobs:
           ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}"
           test -s "bootstrap-${{ matrix.arch }}.zip"
           sha256sum "bootstrap-${{ matrix.arch }}.zip"
+          mkdir -p ../termux-bootstrap-artifacts
+          cp "bootstrap-${{ matrix.arch }}.zip" ../termux-bootstrap-artifacts/
+          bash ../scripts/generate-termux-bootstrap-notices.sh "$PWD" "${{ matrix.arch }}" "../termux-bootstrap-artifacts/termux-bootstrap-packages-${{ matrix.arch }}.csv"
+          git -C .. rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit.txt
 
       - name: Upload custom bootstrap
         uses: actions/upload-artifact@v4
         with:
           name: termux-bootstrap-${{ matrix.arch }}
-          path: termux-packages/bootstrap-${{ matrix.arch }}.zip
+          path: termux-bootstrap-artifacts/*
           if-no-files-found: error
           retention-days: 7
 
@@ -101,6 +105,9 @@ jobs:
           mv bootstrap-aarch64.zip termux-bootstrap-aarch64.zip
           mv bootstrap-arm.zip termux-bootstrap-arm.zip
           sha256sum termux-bootstrap-*.zip
+          cp LICENSE BinaryCalc-GPL-3.0.txt
+          cp LICENSES/Apache-2.0.txt Apache-2.0.txt
+          cp NOTICE NOTICE.txt
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
