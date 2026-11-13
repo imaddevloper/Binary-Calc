@@ -65,7 +65,8 @@
         }
       ],
       "expo-file-system",
-      "expo-notifications"
+      "expo-notifications",
+      "./plugins/withEmbeddedTermux"
     ],
     "experiments": {
       "typedRoutes": true
