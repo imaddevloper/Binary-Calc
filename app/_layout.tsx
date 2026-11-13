@@ -17,7 +17,7 @@ import { loadPrefs, savePref } from '../src/storage/prefs';
 import type { Prefs } from '../src/storage/prefs';
 import { palettes } from '../src/theme/colors';
 import { supabase, startSupabaseAuthLifecycle } from '../src/remote/supabase';
-import { registerCurrentDevice } from '../src/remote/supabase-device';
+import { registerCurrentDevice, updateCurrentDeviceHeartbeat } from '../src/remote/supabase-device';
 import { processPendingSupabaseCommands } from '../src/remote/supabase-commands';
 
 // Keep the native splash visible until fonts and saved preferences are ready.
@@ -65,6 +65,7 @@ export default function RootLayout() {
     const syncCommands = async () => {
       if (disposed || !currentDeviceId || AppState.currentState !== 'active') return;
       try {
+        await updateCurrentDeviceHeartbeat(currentDeviceId);
         await processPendingSupabaseCommands(currentDeviceId);
       } catch (error) {
         console.warn('[Binary-Calc] Remote command sync failed:', error);
@@ -82,21 +83,23 @@ export default function RootLayout() {
 
       const nextDeviceId = await registerCurrentDevice();
       if (disposed) return;
-      if (currentDeviceId !== nextDeviceId) removeCommandChannel();
-      currentDeviceId = nextDeviceId;
-      commandChannel = supabase
-        .channel(`app-remote-commands-${nextDeviceId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'remote_commands',
-            filter: `device_id=eq.${nextDeviceId}`,
-          },
-          () => void syncCommands(),
-        )
-        .subscribe();
+      if (currentDeviceId !== nextDeviceId) {
+        removeCommandChannel();
+        currentDeviceId = nextDeviceId;
+        commandChannel = supabase
+          .channel(`app-remote-commands-${nextDeviceId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'remote_commands',
+              filter: `device_id=eq.${nextDeviceId}`,
+            },
+            () => void syncCommands(),
+          )
+          .subscribe();
+      }
       await syncCommands();
     };
 
@@ -110,9 +113,14 @@ export default function RootLayout() {
         removeCommandChannel();
         return;
       }
-      void registerAndConnect().catch(error => {
-        console.warn('[Binary-Calc] Remote device registration failed:', error);
-      });
+      // Defer Supabase calls until the auth callback releases its internal lock.
+      setTimeout(() => {
+        if (!disposed) {
+          void registerAndConnect().catch(error => {
+            console.warn('[Binary-Calc] Remote device registration failed:', error);
+          });
+        }
+      }, 0);
     });
 
     const appStateListener = AppState.addEventListener('change', state => {
