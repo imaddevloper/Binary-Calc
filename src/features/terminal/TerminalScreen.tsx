@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, NativeModules, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, NativeModules, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppHeader } from '../../components/AppHeader';
 import { AppText } from '../../components/Text';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -32,6 +32,7 @@ interface EmbeddedTermuxBridge {
   getRuntimeStatus: () => Promise<RuntimeInfo>;
   installBootstrap: () => Promise<RuntimeInfo>;
   sendText: (text: string) => Promise<boolean>;
+  getLicenseNotices: () => Promise<string>;
 }
 
 export function TerminalScreen() {
@@ -40,6 +41,8 @@ export function TerminalScreen() {
   const [status, setStatus] = useState<RuntimeStatus>('checking');
   const [architecture, setArchitecture] = useState('');
   const [error, setError] = useState('');
+  const [licensesVisible, setLicensesVisible] = useState(false);
+  const [licenseText, setLicenseText] = useState('');
 
   const inspectRuntime = useCallback(async () => {
     if (Platform.OS !== 'android') {
@@ -67,6 +70,18 @@ export function TerminalScreen() {
   useEffect(() => {
     void inspectRuntime();
   }, [inspectRuntime]);
+
+  const openLicenses = useCallback(async () => {
+    const bridge = NativeModules.EmbeddedTermux as EmbeddedTermuxBridge | undefined;
+    if (!bridge) return;
+    try {
+      const notices = await bridge.getLicenseNotices();
+      setLicenseText(notices);
+      setLicensesVisible(true);
+    } catch (reason) {
+      Alert.alert(t('terminal.errorTitle'), reason instanceof Error ? reason.message : String(reason));
+    }
+  }, [t]);
 
   const sendKey = useCallback(async (value: string) => {
     const bridge = NativeModules.EmbeddedTermux as EmbeddedTermuxBridge | undefined;
@@ -199,10 +214,29 @@ export function TerminalScreen() {
                 </Pressable>
               ))}
             </ScrollView>
+            <SecondaryButton label={t('terminal.licenses')} onPress={() => void openLicenses()} />
             <AppText variant="caption" color="secondary" style={styles.tip}>{t('terminal.firstRun')}</AppText>
           </>
         ) : null}
       </View>
+      <Modal
+        visible={licensesVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLicensesVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <AppText variant="subheading">{t('terminal.licenses')}</AppText>
+            <ScrollView style={styles.licenseScroll}>
+              <AppText variant="caption" selectable style={styles.licenseText}>
+                {licenseText || t('terminal.licenseLoading')}
+              </AppText>
+            </ScrollView>
+            <PrimaryButton label={t('terminal.closeLicenses')} onPress={() => setLicensesVisible(false)} />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -224,4 +258,8 @@ const styles = StyleSheet.create({
   keyButton: { minWidth: 42, height: 36, paddingHorizontal: spacing.sm, borderWidth: 1, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   keyLabel: { fontWeight: '700' },
   tip: { paddingBottom: spacing.xs },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', padding: spacing.lg },
+  modalCard: { maxHeight: '85%', borderWidth: 1, borderRadius: radius.xl, padding: spacing.lg, gap: spacing.md },
+  licenseScroll: { flexGrow: 0, maxHeight: 520 },
+  licenseText: { writingDirection: 'ltr', textAlign: 'left', fontFamily: 'monospace' },
 });
