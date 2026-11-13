@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, useColorScheme } from 'react-native';
+import { AppState, StyleSheet, View, useColorScheme } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import * as SystemUI from 'expo-system-ui';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -15,6 +16,9 @@ import { Intro } from '../src/components/Intro';
 import { loadPrefs, savePref } from '../src/storage/prefs';
 import type { Prefs } from '../src/storage/prefs';
 import { palettes } from '../src/theme/colors';
+import { startSupabaseAuthLifecycle } from '../src/remote/supabase';
+import { getRegisteredDeviceId } from '../src/remote/supabase-device';
+import { processPendingSupabaseCommands } from '../src/remote/supabase-commands';
 
 // Keep the native splash visible until fonts and saved preferences are ready.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
