@@ -47,7 +47,12 @@ final class TermuxBootstrapInstaller {
     static boolean isInstalled(Context context) {
         File bash = new File(getPrefix(context), "bin/bash");
         File apt = new File(getPrefix(context), "bin/apt");
-        return bash.isFile() && bash.canExecute() && apt.isFile() && apt.canExecute();
+        File termuxExec = new File(getPrefix(context), "lib/libtermux-exec.so");
+        File marker = new File(getPrefix(context), INSTALL_MARKER);
+        return marker.isFile()
+            && bash.isFile() && bash.canExecute()
+            && apt.isFile() && apt.canExecute()
+            && termuxExec.isFile() && termuxExec.canRead();
     }
 
     static synchronized void install(Context context) throws Exception {
