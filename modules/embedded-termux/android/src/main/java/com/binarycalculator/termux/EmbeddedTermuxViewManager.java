@@ -29,6 +29,7 @@ public final class EmbeddedTermuxViewManager extends SimpleViewManager<EmbeddedT
 
     @Override
     public void onDropViewInstance(EmbeddedTermuxTerminalView view) {
+        view.closeSession();
         super.onDropViewInstance(view);
     }
 }
