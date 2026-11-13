@@ -89,7 +89,7 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
     }
 
     void closeSession() {
-        if (session != null && session.isRunning()) {
+        if (session != null) {
             session.finishIfRunning();
         }
         session = null;
