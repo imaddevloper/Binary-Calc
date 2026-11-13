@@ -34,7 +34,11 @@ for deb in "${debs[@]}"; do
     source_relative="${source_script#"$packages_root"/}"
     raw_license="$(grep -E '^[[:space:]]*TERMUX_PKG_LICENSE=' "$source_script" | head -n 1 || true)"
     if [[ -n "$raw_license" ]]; then
-      license="$(printf '%s' "$raw_license" | sed -E 's/^[^=]+=//; s/^[[:space:]]*["'"'"']//; s/["'"'"'][[:space:]]*$//')"
+      license="${raw_license#*=}"
+      license="${license#\"}"
+      license="${license%\"}"
+      license="${license#\\'}"
+      license="${license%\\'}"
     fi
   fi
 
