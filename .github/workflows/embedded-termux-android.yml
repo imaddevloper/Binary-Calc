@@ -97,42 +97,38 @@ jobs:
           done
           echo "Bootstrap package/source preflight passed."
 
-      - name: Verify builder can write the checked-out source volume
+      - name: Prepare a host-writable bootstrap artifact directory
         working-directory: termux-packages
         shell: bash
         run: |
           set -euo pipefail
-          probe=".termux-bootstrap-write-test"
-          rm -f "$probe"
-          # Termux's pinned Dockerfile runs the build user as UID/GID 1001.
-          # GitHub-hosted Ubuntu runners may expose a read-only checkout mode
-          # for that UID on the bind mount. Grant write access only to this
-          # ephemeral checked-out source directory and immediately verify it.
-          chmod ugo+rwx .
-          ./scripts/run-docker.sh bash -lc '
-            set -euo pipefail
-            probe="/home/builder/termux-packages/.termux-bootstrap-write-test"
-            printf "termux docker write probe\\n" > "$probe"
-            test -s "$probe"
-            rm -f "$probe"
-            printf "Docker builder UID: "; id -u
-            printf "Docker builder GID: "; id -g
-            test -w /home/builder/termux-packages
-          '
-          test ! -e "$probe"
+          mkdir -p ../termux-bootstrap-artifacts
+          chmod 0777 ../termux-bootstrap-artifacts
+          test -w ../termux-bootstrap-artifacts
 
       - name: Build the official apt-android-7 bootstrap from pinned Termux sources
         working-directory: termux-packages
         shell: bash
         run: |
           set -euo pipefail
-          # Use the official upstream bootstrap script with the single pinned
-          # package rename above; retain the same runner cache for transient
-          # upstream source-host failures.
+          # Upstream build-bootstraps.sh normally moves the archive into its
+          # source checkout bind mount. GitHub-hosted runner bind mounts reject
+          # writes from the Termux builder UID even though the image uses 1001.
+          # Keep the upstream script/package list intact and redirect only its
+          # final archive destination into the container's writable /tmp.
+          sed 's|^TERMUX_PACKAGES_DIRECTORY="/home/builder/termux-packages"$|TERMUX_PACKAGES_DIRECTORY="/tmp/binarycalc-termux-bootstrap-output"|' \
+            scripts/build-bootstraps.sh > scripts/build-bootstraps-binarycalc.sh
+          grep -Fx 'TERMUX_PACKAGES_DIRECTORY="/tmp/binarycalc-termux-bootstrap-output"' scripts/build-bootstraps-binarycalc.sh
+          mkdir -p ../termux-bootstrap-artifacts
           build_succeeded=0
           for attempt in 1 2 3; do
             echo "Bootstrap build attempt ${attempt}/3 for ${{ matrix.arch }}"
-            if ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}"; then
+            if ./scripts/run-docker.sh bash -lc '
+              set -euo pipefail
+              mkdir -p /tmp/binarycalc-termux-bootstrap-output
+              cd /home/builder/termux-packages
+              ./scripts/build-bootstraps-binarycalc.sh --architectures "${{ matrix.arch }}"
+            '; then
               build_succeeded=1
               break
             fi
@@ -146,11 +142,15 @@ jobs:
             echo "::error::Bootstrap build failed after 3 attempts for ${{ matrix.arch }}"
             exit 1
           fi
-          test -s "bootstrap-${{ matrix.arch }}.zip"
-          sha256sum "bootstrap-${{ matrix.arch }}.zip"
-          mkdir -p ../termux-bootstrap-artifacts
-          cp "bootstrap-${{ matrix.arch }}.zip" ../termux-bootstrap-artifacts/
-          sha256sum "bootstrap-${{ matrix.arch }}.zip" | awk '{print $1}' > "../termux-bootstrap-artifacts/bootstrap-${{ matrix.arch }}.zip.sha256"
+          container_path="/tmp/binarycalc-termux-bootstrap-output/bootstrap-${{ matrix.arch }}.zip"
+          host_path="../termux-bootstrap-artifacts/bootstrap-${{ matrix.arch }}.zip"
+          ./scripts/run-docker.sh test -s "$container_path"
+          container_id="$(docker ps -q --filter name=termux-package-builder)"
+          test -n "$container_id"
+          docker cp "${container_id}:${container_path}" "$host_path"
+          test -s "$host_path"
+          sha256sum "$host_path"
+          sha256sum "$host_path" | awk '{print $1}' > "${host_path}.sha256"
           bash ../scripts/generate-termux-bootstrap-notices.sh "$PWD" "${{ matrix.arch }}" "../termux-bootstrap-artifacts/termux-bootstrap-packages-${{ matrix.arch }}.csv"
           git rev-parse HEAD > "../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt"
 
