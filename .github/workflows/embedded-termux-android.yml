@@ -53,12 +53,12 @@ jobs:
           grep -Fx 'TERMUX_APP__PACKAGE_NAME="com.binarycalculator.app"' scripts/properties.sh
           echo "Configured private prefix: /data/data/com.binarycalculator.app/files/usr"
 
-      - name: Build Android 10+ bootstrap from pinned Termux sources
+      - name: Build the official apt-android-7 bootstrap from pinned Termux sources
         working-directory: termux-packages
         shell: bash
         run: |
           set -euo pipefail
-          ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --android10 -f --architectures "${{ matrix.arch }}"
+          ./scripts/run-docker.sh ./scripts/build-bootstraps.sh -f --architectures "${{ matrix.arch }}"
           test -s "bootstrap-${{ matrix.arch }}.zip"
           sha256sum "bootstrap-${{ matrix.arch }}.zip"
 
