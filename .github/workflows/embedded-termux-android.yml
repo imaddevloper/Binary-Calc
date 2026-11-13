@@ -51,8 +51,10 @@ jobs:
           set -euo pipefail
           sed -i 's/^TERMUX_APP__PACKAGE_NAME="com.termux"$/TERMUX_APP__PACKAGE_NAME="com.binarycalculator.app"/' scripts/properties.sh
           sed -i 's/^TERMUX_APP__NAMESPACE="com.termux"$/TERMUX_APP__NAMESPACE="com.binarycalculator.termux"/' scripts/properties.sh
+          sed -i 's/^TERMUX_APP__APP_IDENTIFIER="termux"$/TERMUX_APP__APP_IDENTIFIER="binarycalc"/' scripts/properties.sh
           grep -Fx 'TERMUX_APP__PACKAGE_NAME="com.binarycalculator.app"' scripts/properties.sh
           grep -Fx 'TERMUX_APP__NAMESPACE="com.binarycalculator.termux"' scripts/properties.sh
+          grep -Fx 'TERMUX_APP__APP_IDENTIFIER="binarycalc"' scripts/properties.sh
           echo "Configured app package: com.binarycalculator.app"
           echo "Configured Termux namespace: com.binarycalculator.termux"
           echo "Configured private prefix: /data/data/com.binarycalculator.app/files/usr"
