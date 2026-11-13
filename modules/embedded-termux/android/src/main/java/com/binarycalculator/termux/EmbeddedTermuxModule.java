@@ -36,6 +36,16 @@ public final class EmbeddedTermuxModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void sendText(String text, Promise promise) {
+        try {
+            EmbeddedTermuxSessionHolder.sendText(text);
+            promise.resolve(true);
+        } catch (Exception error) {
+            promise.reject("TERMUX_INPUT_FAILED", error);
+        }
+    }
+
+    @ReactMethod
     public void installBootstrap(Promise promise) {
         installerExecutor.execute(() -> {
             try {
