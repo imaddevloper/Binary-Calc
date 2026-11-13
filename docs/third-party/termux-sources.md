@@ -5,10 +5,21 @@ This is the initial source pin for the embedded Termux investigation. It does no
 ## Pinned upstream revision
 
 - Repository: https://github.com/termux/termux-app
-- Revision: `8629e632fcb95da272221be327db653fb24befe9`
+- Revision: `8629e632fcb95da272221be327db653fb24befe9` (master head checked 2026-11-13)
+- Published release note: the newest GitHub release returned by the releases endpoint remains `v0.119.0-beta.3` (2025-05-22); this implementation intentionally pins the newer source revision instead of relying on that older prebuilt APK.
+- Gradle terminal library pin: JitPack commit `8629e632fc` for `com.termux.termux-app:terminal-view`.
 - Revision URL: https://github.com/termux/termux-app/commit/8629e632fcb95da272221be327db653fb24befe9
 - Audited source date: 2026-11-13
 - Do not use a floating `master-SNAPSHOT` or unpinned dependency in release builds.
+
+## Termux packages / Bootstrap source pin
+
+- Repository: https://github.com/termux/termux-packages
+- Revision: `46ca3fd5a25d42615e7f4cc12c2f7b38c0bdb070` (master head checked 2026-11-13)
+- The custom bootstrap workflow changes only `TERMUX_APP__PACKAGE_NAME` from `com.termux` to `com.binarycalculator.app` before running the upstream `scripts/build-bootstraps.sh --android10` flow.
+- Bootstrap architectures: `aarch64` and `arm`, matching arm64-v8a and armeabi-v7a Android phones.
+- The bootstrap is generated from the pinned package source for the app's private prefix. The standalone Termux app is not required.
+- Additional tools such as Python and Git are installed later with Termux `pkg` / `apt`, not bundled into the initial bootstrap.
 
 ## Components identified
 
@@ -26,7 +37,7 @@ This is the initial source pin for the embedded Termux investigation. It does no
 - Shared library license: https://github.com/termux/termux-app/blob/8629e632fcb95da272221be327db653fb24befe9/termux-shared/LICENSE.md
 - Termux libraries and integration guidance: https://github.com/termux/termux-app/wiki/Termux-Libraries
 - Termux app repository and bootstrap overview: https://github.com/termux/termux-app
-- Termux package/bootstrap repository: https://github.com/termux/termux-packages
+- Termux package/bootstrap repository: https://github.com/termux/termux-packages/tree/46ca3fd5a25d42615e7f4cc12c2f7b38c0bdb070
 
 ## Compliance checklist before distribution
 
