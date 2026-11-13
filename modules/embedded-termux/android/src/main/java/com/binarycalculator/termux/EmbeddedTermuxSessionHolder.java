@@ -12,6 +12,14 @@ final class EmbeddedTermuxSessionHolder {
         activeSession = session;
     }
 
+    static TerminalSession getRunning() {
+        TerminalSession session = activeSession;
+        if (session == null) return null;
+        if (session.isRunning()) return session;
+        activeSession = null;
+        return null;
+    }
+
     static void clear(TerminalSession session) {
         if (activeSession == session) activeSession = null;
     }
