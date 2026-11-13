@@ -214,7 +214,6 @@ export function TerminalScreen() {
                 </Pressable>
               ))}
             </ScrollView>
-            <SecondaryButton label={t('terminal.licenses')} onPress={() => void openLicenses()} />
             <AppText variant="caption" color="secondary" style={styles.tip}>{t('terminal.firstRun')}</AppText>
           </>
         ) : null}
