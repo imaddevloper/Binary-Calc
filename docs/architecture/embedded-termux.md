@@ -27,7 +27,12 @@ Status: native integration and bootstrap pipeline implemented on `feature/embedd
    - First-run extraction is staged under app-private storage, validates archive paths, restores symlinks, activates by rename and marks managed prefixes for interrupted-install recovery.
    - Existing unmarked user data is not overwritten when an invalid prefix is encountered.
 
-4. **Licensing**
+4. **Android executable loading**
+   - The app keeps Expo SDK 58's modern target SDK instead of lowering it to API 28.
+   - On Android 10+ the initial Bash process is started through the platform system linker. The Termux `termux-exec` preload handles child execution when Android's app-data W^X policy requires it.
+   - `LD_LIBRARY_PATH` is deliberately unset on Android 7+ so Termux binaries use their ELF `DT_RUNPATH`, matching upstream Termux environment behavior.
+
+5. **Licensing**
    - Binary-Calc retains GPL-3.0-only distribution terms.
    - Upstream terminal libraries are Apache-2.0 exceptions in Termux's licensing model.
    - The workflow packages license notices and a generated inventory of bootstrap packages. The inventory is a review aid, not a substitute for checking every package's license before release.
@@ -65,6 +70,7 @@ The feature is not complete for release until all of these pass:
 
 ## Runtime and security limits
 
+- The system-linker execution workaround is intended for sideloaded APK distribution. Termux documents that downloading and installing executable code at runtime is not compliant with Google Play executable-code policy; a Play Store release requires a different package-delivery architecture.
 - This is a Termux/Bionic userspace running under Binary-Calc's Android UID, not a Linux VM, not root, and not a separate security sandbox.
 - Shell commands can access only what Android grants to the Binary-Calc process. Do not inject Supabase service-role keys, FCM server credentials or signing keys into the shell.
 - Do not run remote commands automatically. Terminal commands are user-entered.
