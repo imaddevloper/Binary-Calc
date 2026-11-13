@@ -21,7 +21,7 @@ This means every signed-in device belongs to the same trusted account. Protect t
 
 ## Migration
 
-Apply migrations in order using the Supabase CLI:
+These migration filenames intentionally match the versions already applied to the connected Supabase project. Do not rename or squash them unless the database migration history is reconciled first. The repository now contains the matching applied versions. Apply any future migrations in order using the Supabase CLI:
 
 ```bash
 npx supabase login
@@ -31,7 +31,7 @@ npx supabase db push
 
 Or paste the migration file into the Supabase SQL Editor:
 
-`migrations/20261113090000_remote_access_foundation.sql`
+`migrations/20261113085823_binary_calc_remote_access_foundation.sql` and `migrations/20261113085845_index_remote_access_foreign_keys.sql`
 
 The migration creates:
 - `remote_devices`
@@ -53,7 +53,7 @@ Never put a raw Android Storage Access Framework URI in Postgres. Keep the actua
 
 ## Client configuration
 
-The next client integration stage will use only public client configuration:
+The Expo client integration modules now use only public client configuration:
 
 ```dotenv
 EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
@@ -81,4 +81,4 @@ Python is not required inside the Android application. If useful, a later option
 
 ## Status
 
-This is a database/storage foundation only. It does not yet add the Supabase client to the app, implement login/device registration, implement command processing, send push notifications, or transfer files end-to-end. Do not merge into `main` until those stages and the Android device tests pass.
+Current progress: Supabase client/auth lifecycle, per-installation device registration, privacy-preserving folder-grant metadata sync, and a foreground command-queue processor have been added on the feature branch. The Android sign-in/registration screen still needs to be wired into the app navigation; binary file transfer execution, FCM delivery, expiry cleanup, CI validation, and real-device end-to-end tests are still pending. The standalone web dashboard project is supplied separately and also requires app-side device registration/command processing to operate end-to-end. Do not merge into `main` until the remaining stages and Android device tests pass.
