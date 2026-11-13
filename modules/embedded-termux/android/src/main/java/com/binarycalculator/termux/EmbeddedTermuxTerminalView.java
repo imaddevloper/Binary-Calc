@@ -77,8 +77,10 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
             String[] env = new String[] {
                 "HOME=" + home.getAbsolutePath(),
                 "PREFIX=" + prefix.getAbsolutePath(),
-                "PATH=" + new File(prefix, "bin").getAbsolutePath(),
+                "PATH=" + new File(prefix, "bin").getAbsolutePath() + ":/system/bin:/system/xbin",
+                "SHELL=" + bash.getAbsolutePath(),
                 "TMPDIR=" + new File(prefix, "tmp").getAbsolutePath(),
+                "LD_LIBRARY_PATH=" + new File(prefix, "lib").getAbsolutePath(),
                 "LD_PRELOAD=" + termuxExec,
                 "LANG=en_US.UTF-8",
                 "TERM=xterm-256color",
