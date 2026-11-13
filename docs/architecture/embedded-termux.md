@@ -1,111 +1,76 @@
-# Embedded Termux Engine — Architecture and Integration Plan
+# Embedded Termux Engine
 
-Status: implementation in progress on `feature/embedded-termux-engine`. Native integration, the Terminal UI, pinned upstream dependencies, app-specific bootstrap generation and license notices are now present on the branch. Android CI and physical-device validation are still required; this is not production-ready.
+Status: native integration and bootstrap pipeline implemented on `feature/embedded-termux-engine`; automated Android build is still queued/pending and physical-device validation has not yet been performed. Do not treat this feature as production-ready until those gates pass.
 
-Target branch: `feature/embedded-termux-engine`
-Base: `feature/supabase-remote-clean`
-Application: Binary-Calc (Expo SDK 58 / React Native 0.88.1)
-Android application ID: `com.binarycalculator.app`
+- App: Binary-Calc
+- Android application ID: `com.binarycalculator.app`
+- Expo SDK / React Native: `58 / 0.88.1`
+- Base branch: `feature/supabase-remote-clean`
+- Feature branch: `feature/embedded-termux-engine`
 
-## Product requirement
+## What is implemented
 
-Provide a real Termux-derived terminal inside Binary-Calc that works on a clean Android installation where the standalone Termux app is not installed. The terminal must use the upstream Termux terminal emulator and execution/runtime components rather than a fake command prompt or a home-grown shell. Existing Binary-Calc features must remain intact.
+1. **Upstream terminal engine**
+   - Uses the Termux upstream `terminal-view` library and its transitive `terminal-emulator` dependency from a pinned JitPack commit.
+   - Native Android `TerminalSession` owns the PTY and shell process; the UI does not emulate shell commands in JavaScript.
+   - Android keyboard input, clipboard copy/paste, terminal resize and session reuse are wired through the native view.
 
-## Important architecture distinction
+2. **Expo / React Native integration**
+   - `plugins/withEmbeddedTermux.js` registers the local Android library module, JitPack repository and native React package.
+   - `modules/embedded-termux/android` contains the native module, view manager, session holder and bootstrap installer.
+   - `src/features/terminal` provides the app-themed terminal screen; `app/terminal.tsx` is the route.
+   - Arabic and English translations and a Home shortcut are present.
 
-Termux is not a single embeddable library. Upstream separates:
-- `termux-app`: Android application, session/service lifecycle, installer and app integration.
-- `terminal-view` and `terminal-emulator`: terminal rendering and VT/ANSI emulation libraries.
-- `termux-shared`: shared constants and Android/runtime utilities.
-- `termux-packages`: native Android/Bionic packages and the bootstrap archives.
+3. **Self-contained runtime**
+   - GitHub Actions builds the upstream `apt-android-7` bootstrap for `aarch64` and `arm` from pinned `termux-packages` source, changing the build prefix/package identity to `com.binarycalculator.app`.
+   - Bootstrap archives are transferred as workflow artifacts, checksum manifests are packaged beside them, and the Android installer verifies SHA-256 before extraction.
+   - First-run extraction is staged under app-private storage, validates archive paths, restores symlinks, activates by rename and marks managed prefixes for interrupted-install recovery.
+   - Existing unmarked user data is not overwritten when an invalid prefix is encountered.
 
-The upstream library documentation permits third-party apps to use the published terminal libraries, but those libraries alone do not provide a complete shell environment or package manager. The standalone-app `RUN_COMMAND` integration is explicitly not suitable for the requirement because it requires Termux to be installed separately.
+4. **Licensing**
+   - Binary-Calc retains GPL-3.0-only distribution terms.
+   - Upstream terminal libraries are Apache-2.0 exceptions in Termux's licensing model.
+   - The workflow packages license notices and a generated inventory of bootstrap packages. The inventory is a review aid, not a substitute for checking every package's license before release.
 
-## Current implementation on feature branch
+## Upstream pins
 
-- Added an Expo config plugin at `plugins/withEmbeddedTermux.js` to register a local Android library module and the pinned Termux terminal library from JitPack.
-- Added a native Android bridge and React Native view manager under `modules/embedded-termux/android`.
-- The view hosts upstream `TerminalView` / `TerminalSession`; it does not emulate a shell in JavaScript.
-- Added a bootstrap installer that validates extracted paths, stages files under the app-private Termux prefix, restores upstream symlinks, and activates the prefix atomically.
-- Added an Arabic/English Terminal screen and a Home shortcut.
-- Added `.github/workflows/embedded-termux-android.yml` to build app-specific apt-android-7 bootstrap archives (the upstream Android 7+ variant) from pinned Termux packages sources, then prebuild Expo and assemble a debug APK.
-- The bootstrap assets are generated in CI and are not committed as binary blobs.
+See [third-party source and licensing manifest](../third-party/termux-sources.md). The Termux app/library source is pinned to commit `8629e632fcb95da272221be327db653fb24befe9` (master head checked 2026-11-13). The package/bootstrap source is pinned separately to `46ca3fd5a25d42615e7f4cc12c2f7b38c0bdb070`.
 
-This is an in-progress integration. It has not yet passed Android compilation or a real-device shell test. Do not describe it as production-ready until CI and device validation succeed.
+The current upstream app Gradle version at that app commit is `0.118.0`; the commit includes later master changes. Do not confuse this source pin with the newest published stable release tag. Do not replace the commit pin with a floating branch or snapshot.
 
-## Remaining implementation and validation work
+## CI workflow
 
-1. **Pin and audit upstream sources**
-   - Pin a specific stable upstream Termux release/commit; do not track `master` or floating Maven versions.
-   - Record exact source URLs, commit hashes, SPDX/license identifiers, copyright notices and required attribution for every imported component.
-   - Keep upstream source changes isolated under `vendor/termux/` (or a documented Gradle source dependency) so future upstream updates are reviewable.
-   - Confirm the precise license of each library and bootstrap/package component; do not assume every Termux-related repository has identical terms.
+`.github/workflows/embedded-termux-android.yml`:
+- builds ARM64 and ARM bootstrap archives from upstream package sources;
+- generates package/license inventory and SHA-256 manifests;
+- downloads and verifies both archives;
+- runs Expo prebuild with the config plugin;
+- builds a debug APK and uploads it as a workflow artifact.
 
-2. **Native Android host integration**
-   - Generate the Expo Android project through the repository's supported Expo prebuild flow; do not hand-edit generated native files without a config-plugin/source-of-truth strategy.
-   - Add a Kotlin React Native native view/module that hosts upstream `TerminalView` and the upstream terminal emulator/session implementation.
-   - Implement lifecycle-safe session creation, resize, input, output events, Ctrl keys, process exit, foreground/background handling and cleanup.
-   - Keep the terminal implementation behind a narrow native interface so the existing TypeScript app remains isolated from Termux internals.
+Project Checks separately cover unit tests, TypeScript, ESLint, Expo dependency compatibility, Expo Doctor and JS bundle generation.
 
-3. **Self-contained Termux runtime**
-   - Build and package the correct upstream bootstrap archives for the supported Android ABIs.
-   - Rebuild/patch bootstrap and native package prefix assumptions for `com.binarycalculator.app`; do not reuse a `com.termux`-bound prefix blindly.
-   - Install the bootstrap into Binary-Calc's private app files directory on first launch, with atomic extraction, checksum/signature verification, migration/version marker and recovery from interrupted installation.
-   - Set the required `HOME`, `PREFIX`, `PATH`, `TMPDIR`, linker and `LD_PRELOAD` environment for the Termux execution model.
-   - Preserve Termux's Android/Bionic execution model; do not claim a full GNU/Linux VM, root, systemd or kernel isolation.
+## Required acceptance tests
 
-4. **React Native / Expo integration**
-   - Add an Expo config plugin for native Gradle, manifest, ABI packaging and Kotlin registration changes.
-   - Add a Terminal route and navigation entry only after the native runtime passes a standalone Android smoke test.
-   - Reuse upstream terminal rendering; do not create a replacement terminal emulator in JavaScript.
-   - Keep all existing routes, settings, i18n, Supabase remote management, notifications, OCR, calculator and learning features unchanged.
+The feature is not complete for release until all of these pass:
 
-5. **Package management and persistence**
-   - Verify `pkg` / `apt` against the correct Termux repositories and supported Android ABI.
-   - Store the user prefix and installed packages in app-private persistent storage.
-   - Define backup/restore and app-upgrade migration behavior before release.
-   - Clearly document that uninstalling Binary-Calc removes its private Linux environment unless the user exports a backup.
+- CI bootstrap jobs and Android Gradle debug build succeed.
+- APK installs and launches on a clean Android 13 ARM64 device with no standalone Termux installed.
+- First-run setup succeeds; `bash`, `pwd`, `ls`, `echo`, pipes, redirection, environment variables and Ctrl-C work.
+- Terminal input opens the Android keyboard; copy/paste and resize work.
+- `pkg update`, installing Python and Git, and executing them succeed against the matching Termux repositories.
+- Installed packages and files persist after force-stop, reboot and app upgrade.
+- Interrupted first-run installation can be retried without deleting unrelated user data.
+- Existing Binary-Calc calculator, OCR, Supabase remote management, FCM/notifications and learning routes remain functional.
+- GPL corresponding-source, build/install scripts and complete third-party package-license review are ready before distributing APKs.
 
-## Security boundaries
+## Runtime and security limits
 
-- The shell executes arbitrary commands with Binary-Calc's Android app UID and permissions. It is not a sandbox and does not provide root.
-- Do not expose Supabase service-role keys, FCM server credentials, signing keys, or other app secrets to the shell environment.
-- Do not grant broad storage, microphone, camera or notification access merely to make the terminal work. Add only permissions with a reviewed user-facing reason.
-- Keep app-private runtime data separate from the existing remote-device/file-management feature.
-- Do not silently execute commands from remote-control messages. Terminal input must be directly user initiated unless a separately reviewed, explicit authorization model is added.
-- Handle process limits, Android phantom-process restrictions, battery optimization and app lifecycle behavior; report limitations rather than promising uninterrupted daemons.
+- This is a Termux/Bionic userspace running under Binary-Calc's Android UID, not a Linux VM, not root, and not a separate security sandbox.
+- Shell commands can access only what Android grants to the Binary-Calc process. Do not inject Supabase service-role keys, FCM server credentials or signing keys into the shell.
+- Do not run remote commands automatically. Terminal commands are user-entered.
+- Android may stop background processes due to OS process limits and battery management; uninterrupted daemon operation is not guaranteed.
+- Uninstalling Binary-Calc removes its app-private Termux environment unless the user backs it up first.
 
-## GPL-3.0 compliance work
+## Current release gate
 
-Before importing or distributing upstream code:
-- Add the complete applicable GPL-3.0 license text and preserve upstream copyright notices.
-- Add a third-party notices / source manifest identifying each upstream component and exact version/commit.
-- Publish the corresponding source code and build/install scripts for the distributed GPL-covered binaries in a GPL-compliant way.
-- Keep modifications to GPL-covered components clearly marked.
-- Audit dependencies and bootstrap package licenses individually; the user's GPL-3.0 acceptance does not replace this component-by-component audit.
-
-## Required validation gates
-
-Do not merge this feature until all gates pass:
-
-- Clean Android install with no Termux app installed.
-- First-run bootstrap installation and recovery after forced process termination.
-- Shell basics: `pwd`, `ls`, `echo`, environment variables, pipes, redirection, Ctrl-C, interactive shell and terminal resize.
-- `pkg update`, install and execute at least Python and Git from the matching Termux repositories.
-- Persistence after force-stop, reboot and Binary-Calc upgrade.
-- Supported ABI coverage (at minimum the actual target devices' ABI; universal APK only if size and packaging checks pass).
-- No regression in existing Expo routes, typecheck, lint, unit tests, Expo Doctor and Android release build.
-- APK/AAB size and first-install storage measurements.
-- GPL/source-offer and third-party notice review.
-
-## Current known constraints
-
-- The checked branch uses Expo SDK 58 / React Native 0.88.1 and currently has no committed `android/` directory.
-- The existing Android package ID is `com.binarycalculator.app`.
-- The repository's `app.json` already defines permissions, plugins and Google Services configuration. Native integration must preserve them.
-- The existing PR #6 branch remains separate; this work is on a new feature branch and must not be merged into `main` or PR #6 automatically.
-- This plan does not yet constitute a working terminal implementation.
-
-## First implementation milestone
-
-Create a reproducible upstream pin and licensing manifest, add the Expo config-plugin/native skeleton without changing existing app behavior, then build a minimal debug APK. Only after that APK launches cleanly should the bootstrap/runtime be introduced. This staged approach isolates native build failures from shell/runtime failures.
+No merge to `main` is authorized by this document. Keep the feature isolated until CI and real-device acceptance tests pass. PR #6 and the `feature/supabase-remote-clean` work remain untouched.
