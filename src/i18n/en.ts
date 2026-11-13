@@ -88,6 +88,9 @@ export const en = {
   'terminal.shellHint': 'Tap inside the terminal to open the keyboard and enter commands.',
   'terminal.unsupported': 'This build currently supports ARM-based Android devices only.',
   'terminal.bootstrapFailed': 'Termux setup failed. Check the build logs and confirm that the matching Bootstrap asset is bundled in the app.',
+  'terminal.licenses': 'Licenses & notices',
+  'terminal.closeLicenses': 'Close',
+  'terminal.licenseLoading': 'Loading license notices…',
 
   'conv.title': 'Number Converter',
   'conv.mode.convert': 'Convert',
