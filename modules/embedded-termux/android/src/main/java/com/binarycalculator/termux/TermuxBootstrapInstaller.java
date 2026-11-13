@@ -3,6 +3,7 @@ package com.binarycalculator.termux;
 import android.content.Context;
 import android.os.Build;
 import android.system.Os;
+import android.system.OsConstants;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -129,7 +130,7 @@ final class TermuxBootstrapInstaller {
                 if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
                     throw new IllegalStateException("Could not create symlink parent: " + item[1]);
                 }
-                if (link.exists() || java.nio.file.Files.isSymbolicLink(link.toPath())) link.delete();
+                if (link.exists() || isSymbolicLink(link)) link.delete();
                 Os.symlink(item[0], link.getAbsolutePath());
             }
 
@@ -163,9 +164,17 @@ final class TermuxBootstrapInstaller {
         return candidate;
     }
 
+    private static boolean isSymbolicLink(File file) {
+        try {
+            return (Os.lstat(file.getAbsolutePath()).st_mode & OsConstants.S_IFMT) == OsConstants.S_IFLNK;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     private static void deleteRecursively(File file) {
-        if (file == null || !file.exists()) return;
-        if (file.isDirectory() && !java.nio.file.Files.isSymbolicLink(file.toPath())) {
+        if (file == null || (!file.exists() && !isSymbolicLink(file))) return;
+        if (file.isDirectory() && !isSymbolicLink(file)) {
             File[] children = file.listFiles();
             if (children != null) for (File child : children) deleteRecursively(child);
         }
