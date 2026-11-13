@@ -12,6 +12,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -21,6 +22,7 @@ final class TermuxBootstrapInstaller {
     private static final String PREFIX_NAME = "usr";
     private static final String STAGING_NAME = "usr-staging";
     private static final String SYMLINK_SEPARATOR = "←";
+    private static final String INSTALL_MARKER = ".binarycalc-termux-managed";
 
     private TermuxBootstrapInstaller() {}
 
@@ -53,15 +55,22 @@ final class TermuxBootstrapInstaller {
 
         String arch = getSupportedArchitecture();
         String assetName = "termux-bootstrap-" + arch + ".zip";
+        verifyAssetChecksum(context, assetName);
         File files = getFilesRoot(context);
         File staging = new File(files, STAGING_NAME);
         File prefix = getPrefix(context);
 
         deleteRecursively(staging);
         if (prefix.exists() || isSymbolicLink(prefix)) {
-            throw new IllegalStateException(
-                "An existing Termux prefix was found but failed validation. It was left untouched to protect installed packages and user files."
-            );
+            File marker = new File(prefix, INSTALL_MARKER);
+            if (prefix.isDirectory() && marker.isFile()) {
+                // Recover an install interrupted after atomic activation.
+                deleteRecursively(prefix);
+            } else {
+                throw new IllegalStateException(
+                    "An existing Termux prefix was found but failed validation. It was left untouched to protect user files."
+                );
+            }
         }
         if (!staging.mkdirs() && !staging.isDirectory()) {
             throw new IllegalStateException("Could not create the Termux bootstrap staging directory.");
@@ -141,6 +150,11 @@ final class TermuxBootstrapInstaller {
 
             File home = new File(files, "home");
             File tmp = new File(staging, "tmp");
+            File marker = new File(staging, INSTALL_MARKER);
+            try (FileOutputStream output = new FileOutputStream(marker)) {
+                output.write("Managed by Binary-Calc embedded Termux installer.\n".getBytes(StandardCharsets.UTF_8));
+            }
+            Os.chmod(marker.getAbsolutePath(), 0600);
             if (!home.isDirectory() && !home.mkdirs()) throw new IllegalStateException("Could not create Termux HOME.");
             if (!tmp.isDirectory() && !tmp.mkdirs()) throw new IllegalStateException("Could not create Termux TMPDIR.");
             Os.chmod(home.getAbsolutePath(), 0700);
@@ -159,6 +173,29 @@ final class TermuxBootstrapInstaller {
             // Existing user prefixes are never removed: installation rejects them before extraction.
             if (prefixActivated) deleteRecursively(prefix);
             throw error;
+        }
+    }
+
+    private static void verifyAssetChecksum(Context context, String assetName) throws Exception {
+        String expected;
+        try (InputStream input = context.getAssets().open(assetName + ".sha256");
+             BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.US_ASCII))) {
+            expected = reader.readLine();
+        }
+        if (expected == null || !expected.matches("(?i)[0-9a-f]{64}")) {
+            throw new SecurityException("Missing or invalid Termux bootstrap SHA-256 manifest.");
+        }
+
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (InputStream input = context.getAssets().open(assetName)) {
+            byte[] buffer = new byte[64 * 1024];
+            int count;
+            while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count);
+        }
+        StringBuilder actual = new StringBuilder(64);
+        for (byte value : digest.digest()) actual.append(String.format(java.util.Locale.ROOT, "%02x", value & 0xff));
+        if (!expected.equalsIgnoreCase(actual.toString())) {
+            throw new SecurityException("Termux bootstrap checksum verification failed.");
         }
     }
 
