@@ -246,3 +246,81 @@ export async function executeStorageCommand(command: StorageCommand): Promise<un
 export async function clearFolderGrants(): Promise<void> {
   await SecureStore.deleteItemAsync(GRANTS_KEY);
 }
+
+
+export interface GrantedBinaryFile {
+  name: string;
+  size: number;
+  mimeType: string;
+  base64: string;
+}
+
+const MAX_BINARY_TRANSFER_BYTES = 15 * 1024 * 1024;
+
+/** Read one regular file from a folder the user explicitly granted through Android SAF. */
+export async function readGrantedFileBase64(grantId: string, relativePath: string): Promise<GrantedBinaryFile> {
+  if (!safePath(relativePath) || !relativePath) throw new RemoteStorageError("invalid_relative_path");
+  const parts = relativePath.split("/");
+  const fileName = parts.pop()!;
+  if (!safeSegment(fileName)) throw new RemoteStorageError("invalid_file_name");
+
+  const grant = await findGrant(grantId);
+  const parentUri = await resolveDirectory(grant, parts.join("/"));
+  const children = await FileSystem.StorageAccessFramework.readDirectoryAsync(parentUri);
+  let fileUri: string | null = null;
+  for (const childUri of children) {
+    if (nameFromSafUri(childUri) !== fileName) continue;
+    const info = await FileSystem.getInfoAsync(childUri);
+    if (info.exists && !info.isDirectory) { fileUri = childUri; break; }
+  }
+  if (!fileUri) throw new RemoteStorageError("file_not_found");
+
+  const info = await FileSystem.getInfoAsync(fileUri);
+  if (!info.exists || info.isDirectory || typeof info.size !== "number") {
+    throw new RemoteStorageError("file_not_found");
+  }
+  if (info.size > MAX_BINARY_TRANSFER_BYTES) {
+    throw new RemoteStorageError("file_too_large_for_mobile_transfer");
+  }
+
+  const base64 = await FileSystem.readAsStringAsync(fileUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const extension = fileName.includes(".") ? fileName.split(".").pop()!.toLowerCase() : "";
+  const mimeTypes: Record<string, string> = {
+    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+    gif: "image/gif", pdf: "application/pdf", txt: "text/plain", json: "application/json",
+    mp4: "video/mp4", mp3: "audio/mpeg", zip: "application/zip",
+  };
+  return { name: fileName, size: info.size, mimeType: mimeTypes[extension] ?? "application/octet-stream", base64 };
+}
+
+/** Write downloaded bytes into a user-approved SAF folder; never accepts an absolute path. */
+export async function writeGrantedFileBase64(
+  grantId: string,
+  parentPath: string,
+  fileName: string,
+  base64: string,
+  mimeType: string,
+): Promise<{ name: string; size: number }> {
+  if (!safePath(parentPath) || !safeSegment(fileName) || typeof base64 !== "string") {
+    throw new RemoteStorageError("invalid_file_payload");
+  }
+  if (base64.length > Math.ceil(MAX_BINARY_TRANSFER_BYTES * 4 / 3) + 16) {
+    throw new RemoteStorageError("file_too_large_for_mobile_transfer");
+  }
+  const grant = await findGrant(grantId);
+  const parentUri = await resolveDirectory(grant, parentPath);
+  const normalizedMime = typeof mimeType === "string" && mimeType.length <= 127
+    ? mimeType
+    : "application/octet-stream";
+  const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+    parentUri,
+    fileName,
+    normalizedMime,
+  );
+  await FileSystem.writeAsStringAsync(fileUri, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return { name: fileName, size: Math.floor(base64.length * 3 / 4) };
+}
