@@ -144,14 +144,10 @@ jobs:
           }'''
           source = source[:matches[0].start()] + replacement + source[matches[0].end():]
           # Reconcile on every invocation, including when Docker reuses an existing container.
-          source = source.replace(
-              '\\t__change_builder_uid_gid\\n',
-              '',
-          )
           marker = '# Set traps to ensure that the process started with docker exec and all its children are killed.'
           if source.count(marker) != 1:
               raise SystemExit("Could not locate the docker-exec setup point; refusing to insert identity verification.")
-          source = source.replace(marker, '__change_builder_uid_gid\\n\\n' + marker)
+          source = source.replace(marker, '__change_builder_uid_gid' + chr(10) + chr(10) + marker)
           path.write_text(source)
           PY
           bash -n scripts/run-docker.sh
