@@ -99,30 +99,66 @@ jobs:
           done
           echo "Bootstrap package/source preflight passed."
 
-      - name: Fix Docker builder UID/GID reconciliation
+      - name: Reconcile Docker builder UID/GID with the actual host identity
         working-directory: termux-packages
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path("scripts/run-docker.sh")
           source = path.read_text()
-          old_guard = 'if [ $(id -u) -ne 1001 -a $(id -u) -ne 0 ]; then'
-          new_guard = 'if [ "$(id -u)" -ne 0 ] && { [ "$(id -u)" -ne 1001 ] || [ "$(id -g)" -ne 1001 ]; }; then'
-          old_groupmod = 'sudo groupmod -g $(id -g) builder'
-          new_groupmod = 'sudo groupmod -o -g $(id -g) builder'
-          if source.count(old_guard) != 1 or source.count(old_groupmod) != 1:
-              raise SystemExit("Pinned upstream UID/GID code differs from the expected source; refusing an unsafe patch.")
-          source = source.replace(old_guard, new_guard).replace(old_groupmod, new_groupmod)
+          pattern = r"__change_builder_uid_gid\(\) \{.*?\n\}"
+          matches = list(re.finditer(pattern, source, re.S))
+          if len(matches) != 1:
+              raise SystemExit(f"Expected exactly one upstream UID/GID function, found {len(matches)}; refusing to patch.")
+          replacement = r'''__change_builder_uid_gid() {
+            if [ "$UNAME" != Darwin ] && [ "$(id -u)" -ne 0 ]; then
+              local host_uid host_gid builder_uid builder_gid
+              host_uid="$(id -u)"
+              host_gid="$(id -g)"
+              builder_uid="$($SUDO docker exec "$CONTAINER_NAME" id -u builder)"
+              builder_gid="$($SUDO docker exec "$CONTAINER_NAME" id -g builder)"
+              echo "Host UID:GID: ${host_uid}:${host_gid}"
+              echo "Container builder UID:GID before reconciliation: ${builder_uid}:${builder_gid}"
+              if [ "$builder_uid" != "$host_uid" ] || [ "$builder_gid" != "$host_gid" ]; then
+                echo "Reconciling container builder identity with the mounted workspace..."
+                if [ "$builder_uid" != "$host_uid" ]; then
+                  $SUDO docker exec "$CONTAINER_NAME" sudo usermod -o -u "$host_uid" builder
+                fi
+                if [ "$builder_gid" != "$host_gid" ]; then
+                  $SUDO docker exec "$CONTAINER_NAME" sudo groupmod -o -g "$host_gid" builder
+                fi
+                $SUDO docker exec "$CONTAINER_NAME" sudo chown -R "${host_uid}:${host_gid}" "$CONTAINER_HOME_DIR" /data
+              fi
+              builder_uid="$($SUDO docker exec "$CONTAINER_NAME" id -u builder)"
+              builder_gid="$($SUDO docker exec "$CONTAINER_NAME" id -g builder)"
+              if [ "$builder_uid" != "$host_uid" ] || [ "$builder_gid" != "$host_gid" ]; then
+                echo "::error::Container builder identity still differs from the host: ${builder_uid}:${builder_gid} vs ${host_uid}:${host_gid}"
+                return 1
+              fi
+              echo "Verified container builder UID:GID: ${builder_uid}:${builder_gid}"
+            fi
+          }'''
+          source = source[:matches[0].start()] + replacement + source[matches[0].end():]
+          # Reconcile on every invocation, including when Docker reuses an existing container.
+          source = source.replace(
+              '\\t__change_builder_uid_gid\\n',
+              '',
+          )
+          marker = '# Set traps to ensure that the process started with docker exec and all its children are killed.'
+          if source.count(marker) != 1:
+              raise SystemExit("Could not locate the docker-exec setup point; refusing to insert identity verification.")
+          source = source.replace(marker, '__change_builder_uid_gid\\n\\n' + marker)
           path.write_text(source)
           PY
-          expected='if [ "$(id -u)" -ne 0 ] && { [ "$(id -u)" -ne 1001 ] || [ "$(id -g)" -ne 1001 ]; }; then'
-          grep -Fq "$expected" scripts/run-docker.sh
-          grep -Fq 'sudo groupmod -o -g $(id -g) builder' scripts/run-docker.sh
           bash -n scripts/run-docker.sh
-          echo "Verified: Docker builder reconciliation now checks both host UID and host GID."
+          grep -Fq 'id -u builder' scripts/run-docker.sh
+          grep -Fq 'id -g builder' scripts/run-docker.sh
+          grep -Fq 'groupmod -o -g' scripts/run-docker.sh
+          echo "Verified: builder identity is compared against the real host UID and GID and rechecked before every docker exec."
 
       - name: Independently verify Docker bind-mount write permissions
         working-directory: termux-packages
@@ -136,12 +172,12 @@ jobs:
           # a tiny write probe; the multi-hour bootstrap has not started yet.
           timeout 10m ./scripts/run-docker.sh bash -lc '
             set -euo pipefail
-            printf "docker-write-ok\\n" > ".uid-gid-write-probe-${{ matrix.arch }}"
-            test -s ".uid-gid-write-probe-${{ matrix.arch }}"
-            printf "Container identity: %s:%s\\n" "$(id -u)" "$(id -g)"
-            printf "Mounted directory identity: %s:%s\\n" "$(stat -c %u:%g .)"
+            printf "Container builder identity: %s:%s\\n" "$(id -u)" "$(id -g)"
+            printf "Mounted directory identity before write: %s:%s\\n" "$(stat -c %u:%g .)"
             test "$(id -u)" = "$(stat -c %u .)"
             test "$(id -g)" = "$(stat -c %g .)"
+            printf "docker-write-ok\\n" > ".uid-gid-write-probe-${{ matrix.arch }}"
+            test -s ".uid-gid-write-probe-${{ matrix.arch }}"
           '
           test -s "$probe"
           grep -Fxq "docker-write-ok" "$probe"
