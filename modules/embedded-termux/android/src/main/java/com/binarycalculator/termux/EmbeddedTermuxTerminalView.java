@@ -86,8 +86,8 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
                 "TERMUX_PACKAGE_MANAGER=apt",
                 "TERMUX_PACKAGE_ARCH=" + architecture,
                 "TERMUX_APP__PACKAGE_NAME=" + getContext().getPackageName(),
-                "TERMUX_APP__VERSION_NAME=1.0.0",
-                "TERMUX_APP__VERSION_CODE=1",
+                "TERMUX_APP__VERSION_NAME=0.118.0",
+                "TERMUX_APP__VERSION_CODE=118",
                 "TERMUX_APP__PID=" + Process.myPid(),
                 "TERMUX_APP__UID=" + uid,
                 "TERMUX_APP__IS_DEBUGGABLE_BUILD=" + ((getContext().getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0),
@@ -100,7 +100,6 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
                 "TERMUX_APP__FILES_DIR=" + files.getAbsolutePath(),
                 "TERMUX__UID=" + uid,
                 "TERMUX__USER_ID=" + userId,
-                "TERMUX__ROOTFS=" + files.getAbsolutePath(),
                 "TERMUX__HOME=" + home.getAbsolutePath(),
                 "TERMUX__PREFIX=" + prefix.getAbsolutePath()
             };
