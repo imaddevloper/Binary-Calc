@@ -11,7 +11,7 @@ import { ErrorMessage, InfoMessage } from "../src/components/Feedback";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { spacing } from "../src/theme/spacing";
 import { supabase, startSupabaseAuthLifecycle } from "../src/remote/supabase";
-import { registerCurrentDevice, getRegisteredDeviceId, updateCurrentDeviceHeartbeat, syncFolderGrantMetadata } from "../src/remote/supabase-device";
+import { registerCurrentDevice, updateCurrentDeviceHeartbeat, syncFolderGrantMetadata, enableRemotePushNotifications } from "../src/remote/supabase-device";
 import { processPendingSupabaseCommands } from "../src/remote/supabase-commands";
 import { addFolderGrant, listFolderGrants, removeFolderGrant } from "../src/remote/storage";
 import type { FolderGrantSummary } from "../src/remote/storage";
