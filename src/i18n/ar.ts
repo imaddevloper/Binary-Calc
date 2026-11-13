@@ -90,6 +90,9 @@ export const ar: Record<TKey, string> = {
   'terminal.shellHint': 'اضغط داخل الطرفية لفتح لوحة المفاتيح وبدء كتابة الأوامر.',
   'terminal.unsupported': 'هذه النسخة تدعم أجهزة Android بمعمارية ARM فقط حالياً.',
   'terminal.bootstrapFailed': 'فشل تثبيت بيئة Termux. تحقق من سجل البناء ووجود ملف Bootstrap المناسب داخل التطبيق.',
+  'terminal.licenses': 'التراخيص والإشعارات',
+  'terminal.closeLicenses': 'إغلاق',
+  'terminal.licenseLoading': 'جارٍ تحميل التراخيص…',
 
   'conv.title': 'محوّل الأعداد',
   'conv.mode.convert': 'تحويل',
