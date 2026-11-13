@@ -73,7 +73,8 @@ export function TerminalScreen() {
   }, []);
 
   useEffect(() => {
-    void inspectRuntime();
+    const task = setTimeout(() => { void inspectRuntime(); }, 0);
+    return () => clearTimeout(task);
   }, [inspectRuntime]);
 
   const openLicenses = useCallback(async () => {
