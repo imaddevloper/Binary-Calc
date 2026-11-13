@@ -183,7 +183,7 @@ jobs:
           cp "bootstrap-${{ matrix.arch }}.zip" ../termux-bootstrap-artifacts/
           sha256sum "bootstrap-${{ matrix.arch }}.zip" | awk '{print $1}' > "../termux-bootstrap-artifacts/bootstrap-${{ matrix.arch }}.zip.sha256"
           bash ../scripts/generate-termux-bootstrap-notices.sh "$PWD" "${{ matrix.arch }}" "../termux-bootstrap-artifacts/termux-bootstrap-packages-${{ matrix.arch }}.csv"
-          git rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt"
+          git rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt
 
       - name: Upload custom bootstrap
         uses: actions/upload-artifact@v4
