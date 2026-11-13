@@ -115,8 +115,8 @@ jobs:
           mv bootstrap-arm.zip termux-bootstrap-arm.zip
           mv bootstrap-aarch64.zip.sha256 termux-bootstrap-aarch64.zip.sha256
           mv bootstrap-arm.zip.sha256 termux-bootstrap-arm.zip.sha256
-          sha256sum -c termux-bootstrap-aarch64.zip.sha256
-          sha256sum -c termux-bootstrap-arm.zip.sha256
+          echo "$(cat termux-bootstrap-aarch64.zip.sha256)  termux-bootstrap-aarch64.zip" | sha256sum -c -
+          echo "$(cat termux-bootstrap-arm.zip.sha256)  termux-bootstrap-arm.zip" | sha256sum -c -
           cp "$GITHUB_WORKSPACE/LICENSE" BinaryCalc-GPL-3.0.txt
           cp "$GITHUB_WORKSPACE/LICENSES/Apache-2.0.txt" Apache-2.0.txt
           cp "$GITHUB_WORKSPACE/NOTICE" NOTICE.txt
