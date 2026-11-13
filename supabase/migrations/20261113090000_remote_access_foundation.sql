@@ -75,10 +75,124 @@ create table if not exists public.remote_file_transfers (
   device_id uuid not null,
   direction text not null check (direction in ('from_device', 'to_device')),
   file_name text not null check (char_length(file_name) between 1 and 255),
-  mime_type text,
+  mime_type text check (mime_type is null or char_length(mime_type) <= 127),
   size_bytes bigint not null check (size_bytes between 0 and 52428800),
-  sha256 text check (sha256 is null or sha256 ~ '^[a-fA-F0-9]{64}$'),
-  object_path text not null unique,
+  sha256 text check (sha256 is null or sha256 ~ '^[a-fA-F0-9]{64}
+  status text not null default 'pending'
+    check (status in ('pending', 'uploading', 'available', 'downloading', 'completed', 'failed', 'expired', 'cancelled')),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '24 hours'),
+  foreign key (device_id, owner_id)
+    references public.remote_devices(id, owner_id) on delete cascade
+);
+
+create index if not exists remote_file_transfers_owner_created_idx
+  on public.remote_file_transfers (owner_id, created_at desc);
+
+alter table public.remote_devices enable row level security;
+alter table public.remote_folder_grants enable row level security;
+alter table public.remote_commands enable row level security;
+alter table public.remote_file_transfers enable row level security;
+
+grant select, insert, update, delete on public.remote_devices to authenticated;
+grant select, insert, update, delete on public.remote_folder_grants to authenticated;
+grant select, insert, update, delete on public.remote_commands to authenticated;
+grant select, insert, update, delete on public.remote_file_transfers to authenticated;
+
+drop policy if exists "device owner access" on public.remote_devices;
+create policy "device owner access"
+  on public.remote_devices for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+drop policy if exists "folder grant owner access" on public.remote_folder_grants;
+create policy "folder grant owner access"
+  on public.remote_folder_grants for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+drop policy if exists "command owner access" on public.remote_commands;
+create policy "command owner access"
+  on public.remote_commands for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (
+    owner_id = (select auth.uid())
+    and created_by = (select auth.uid())
+  );
+
+drop policy if exists "file transfer owner access" on public.remote_file_transfers;
+create policy "file transfer owner access"
+  on public.remote_file_transfers for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+-- Private bucket. The mobile app must upload only after the user chooses a file.
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('binary-calc-device-files', 'binary-calc-device-files', false, 52428800)
+on conflict (id) do update
+set public = false, file_size_limit = excluded.file_size_limit;
+
+drop policy if exists "binary calc owner read" on storage.objects;
+create policy "binary calc owner read"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'binary-calc-device-files'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+drop policy if exists "binary calc owner upload" on storage.objects;
+create policy "binary calc owner upload"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'binary-calc-device-files'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+drop policy if exists "binary calc owner update" on storage.objects;
+create policy "binary calc owner update"
+  on storage.objects for update to authenticated
+  using (
+    bucket_id = 'binary-calc-device-files'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  )
+  with check (
+    bucket_id = 'binary-calc-device-files'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+drop policy if exists "binary calc owner delete" on storage.objects;
+create policy "binary calc owner delete"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'binary-calc-device-files'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+-- Realtime subscriptions are used for command delivery and device status.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'remote_commands'
+  ) then
+    alter publication supabase_realtime add table public.remote_commands;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'remote_devices'
+  ) then
+    alter publication supabase_realtime add table public.remote_devices;
+  end if;
+end
+$$;
+),
+  object_path text not null unique
+    check (object_path like owner_id::text || '/' || device_id::text || '/' || id::text || '/%'),
   status text not null default 'pending'
     check (status in ('pending', 'uploading', 'available', 'downloading', 'completed', 'failed', 'expired', 'cancelled')),
   created_at timestamptz not null default now(),
