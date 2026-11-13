@@ -21,4 +21,6 @@ android {
 dependencies {
     implementation 'com.facebook.react:react-android'
     implementation 'com.termux.termux-app:terminal-view:8629e632fc'
+    // Required by Termux library consumers to avoid duplicate Guava ListenableFuture classes.
+    implementation 'com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava'
 }
