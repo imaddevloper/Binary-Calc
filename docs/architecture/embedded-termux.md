@@ -28,7 +28,7 @@ The upstream library documentation permits third-party apps to use the published
 - The view hosts upstream `TerminalView` / `TerminalSession`; it does not emulate a shell in JavaScript.
 - Added a bootstrap installer that validates extracted paths, stages files under the app-private Termux prefix, restores upstream symlinks, and activates the prefix atomically.
 - Added an Arabic/English Terminal screen and a Home shortcut.
-- Added `.github/workflows/embedded-termux-android.yml` to build app-specific Android 10+ bootstrap archives from pinned Termux packages sources, then prebuild Expo and assemble a debug APK.
+- Added `.github/workflows/embedded-termux-android.yml` to build app-specific apt-android-7 bootstrap archives (the upstream Android 7+ variant) from pinned Termux packages sources, then prebuild Expo and assemble a debug APK.
 - The bootstrap assets are generated in CI and are not committed as binary blobs.
 
 This is an in-progress integration. It has not yet passed Android compilation or a real-device shell test. Do not describe it as production-ready until CI and device validation succeed.
