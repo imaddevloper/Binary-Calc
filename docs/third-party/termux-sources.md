@@ -16,8 +16,8 @@ This is the initial source pin for the embedded Termux investigation. It does no
 
 - Repository: https://github.com/termux/termux-packages
 - Revision: `46ca3fd5a25d42615e7f4cc12c2f7b38c0bdb070` (master head checked 2026-11-13)
-- The custom bootstrap workflow changes only `TERMUX_APP__PACKAGE_NAME` from `com.termux` to `com.binarycalculator.app` before running the upstream `scripts/build-bootstraps.sh --android10` flow.
-- Bootstrap architectures: `aarch64` and `arm`, matching arm64-v8a and armeabi-v7a Android phones.
+- The custom bootstrap workflow changes only `TERMUX_APP__PACKAGE_NAME` from `com.termux` to `com.binarycalculator.app` before running the upstream default Debian/APT `scripts/build-bootstraps.sh` flow. It deliberately does not pass `--android10`, which selects a different bootstrap packaging mode and omits the APT bootstrap package.
+- Bootstrap package variant: `apt-android-7` (the current Termux app build configuration for Android 7+), which works on modern Android versions including Android 13. Architectures: `aarch64` and `arm`, matching arm64-v8a and armeabi-v7a Android phones.
 - The bootstrap is generated from the pinned package source for the app's private prefix. The standalone Termux app is not required.
 - Additional tools such as Python and Git are installed later with Termux `pkg` / `apt`, not bundled into the initial bootstrap.
 
