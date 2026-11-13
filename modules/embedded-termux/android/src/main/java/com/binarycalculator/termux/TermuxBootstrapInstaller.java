@@ -123,9 +123,11 @@ final class TermuxBootstrapInstaller {
                         int count;
                         while ((count = zip.read(buffer)) != -1) output.write(buffer, 0, count);
                     }
-                    if (name.startsWith("bin/") || name.startsWith("libexec/")
-                            || name.startsWith("lib/apt/apt-helper")
-                            || name.startsWith("lib/apt/methods/")) {
+                    String permissionPath = name;
+                    while (permissionPath.startsWith("./")) permissionPath = permissionPath.substring(2);
+                    if (permissionPath.startsWith("bin/") || permissionPath.startsWith("libexec/")
+                            || permissionPath.equals("lib/apt/apt-helper")
+                            || permissionPath.startsWith("lib/apt/methods/")) {
                         Os.chmod(target.getAbsolutePath(), 0700);
                     }
                 }
