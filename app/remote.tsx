@@ -1,273 +1,248 @@
-import React, { useEffect, useState } from "react";
-import { AppState, Linking, Platform, View } from "react-native";
-import Constants from "expo-constants";
-import * as Clipboard from "expo-clipboard";
+import React, { useCallback, useEffect, useState } from "react";
+import { AppState, StyleSheet, TextInput, View } from "react-native";
+import type { Session } from "@supabase/supabase-js";
 import { Screen } from "../src/components/Screen";
 import { AppHeader } from "../src/components/AppHeader";
 import { Card } from "../src/components/Card";
 import { AppText } from "../src/components/Text";
 import { PrimaryButton, SecondaryButton } from "../src/components/Buttons";
 import { ErrorMessage, InfoMessage } from "../src/components/Feedback";
-import { useToast } from "../src/components/Toast";
-import { useI18n } from "../src/hooks/useI18n";
-import type { TKey } from "../src/i18n";
-import { spacing } from "../src/theme/spacing";
 import { useTheme } from "../src/theme/ThemeProvider";
-import {
-  completePendingPairing,
-  createPairingSession,
-  hasPairedDevice,
-  loadPendingPairing,
-  pollDeviceCommands,
-  RemoteApiError,
-  revokeThisDevice,
-  type PendingPairing,
-} from "../src/remote/client";
+import { spacing } from "../src/theme/spacing";
+import { supabase, startSupabaseAuthLifecycle } from "../src/remote/supabase";
+import { registerCurrentDevice, getRegisteredDeviceId, updateCurrentDeviceHeartbeat, syncFolderGrantMetadata } from "../src/remote/supabase-device";
+import { processPendingSupabaseCommands } from "../src/remote/supabase-commands";
 import { addFolderGrant, listFolderGrants, removeFolderGrant } from "../src/remote/storage";
 import type { FolderGrantSummary } from "../src/remote/storage";
 
-const DASHBOARD_URL = "https://binary-calc-remote.binary-calc-remote.workers.dev/";
-
 export default function RemoteScreen() {
-  const { t } = useI18n();
   const { colors } = useTheme();
-  const toast = useToast();
-  const [pending, setPending] = useState<PendingPairing | null>(null);
-  const [paired, setPaired] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [folders, setFolders] = useState<FolderGrantSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [grants, setGrants] = useState<FolderGrantSummary[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
 
   useEffect(() => {
+    const stopLifecycle = startSupabaseAuthLifecycle();
     let alive = true;
-    void Promise.all([hasPairedDevice(), loadPendingPairing(), listFolderGrants()])
-      .then(([isPaired, pendingPairing, folderGrants]) => {
+    void supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!alive) return;
+      if (sessionError) setError(sessionError.message);
+      setSession(data.session);
+      setLoadingSession(false);
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setError(null);
+    });
+    return () => {
+      alive = false;
+      data.subscription.unsubscribe();
+      stopLifecycle();
+    };
+  }, []);
+
+  const refreshFolders = useCallback(async () => {
+    setFolders(await listFolderGrants());
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setDeviceId(null);
+      setFolders([]);
+      return;
+    }
+    let alive = true;
+    setBusy(true);
+    setMessage("تسجيل هذا الهاتف في حسابك...");
+    void registerCurrentDevice()
+      .then(async (id) => {
         if (!alive) return;
-        setPaired(isPaired);
-        setPending(pendingPairing);
-        setGrants(folderGrants);
-        setRemainingSeconds(pendingPairing ? Math.max(0, Math.ceil((pendingPairing.expiresAt - Date.now()) / 1000)) : 0);
+        setDeviceId(id);
+        await refreshFolders();
+        setMessage("تم تسجيل هذا الهاتف. يمكنك الآن إدارة المجلدات التي اخترتها.");
       })
-      .catch(() => {
-        if (alive) setError(t("remote.loadFailed"));
-      });
+      .catch((cause: unknown) => {
+        if (alive) setError(cause instanceof Error ? cause.message : "تعذر تسجيل الجهاز");
+      })
+      .finally(() => { if (alive) setBusy(false); });
     return () => { alive = false; };
-  }, [t]);
+  }, [session?.user?.id, refreshFolders]);
 
   useEffect(() => {
-    if (!pending) return;
-    const interval = setInterval(() => {
-      setRemainingSeconds(Math.max(0, Math.ceil((pending.expiresAt - Date.now()) / 1000)));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [pending]);
-  useEffect(() => {
-    if (!paired) return;
-
+    if (!session?.user?.id || !deviceId) return;
     let alive = true;
-    const poll = async () => {
+    const sync = async () => {
       if (AppState.currentState !== "active") return;
       try {
-        await pollDeviceCommands();
+        await updateCurrentDeviceHeartbeat(deviceId);
+        await processPendingSupabaseCommands(deviceId);
         if (alive) {
-          setLastSyncAt(Date.now());
+          setLastSync(new Date());
           setError(null);
         }
       } catch (cause) {
-        if (!alive) return;
-        if (cause instanceof RemoteApiError && ["unauthorized", "not_paired"].includes(cause.code)) {
-          setPaired(false);
-          setLastSyncAt(null);
-          setGrants([]);
-        }
-        setError(errorMessage(cause, t));
+        if (alive) setError(cause instanceof Error ? cause.message : "تعذرت مزامنة الأوامر");
       }
     };
-
-    void poll();
-    const interval = setInterval(() => void poll(), 15_000);
+    void sync();
+    const interval = setInterval(() => void sync(), 15_000);
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void poll();
+      if (state === "active") void sync();
     });
-
     return () => {
       alive = false;
       clearInterval(interval);
       subscription.remove();
     };
-  }, [paired, t]);
+  }, [session?.user?.id, deviceId]);
 
-  const createCode = async () => {
+  const submitAuth = async () => {
     setBusy(true);
     setError(null);
+    setMessage(null);
     try {
-      const deviceName = Constants.deviceName || (Platform.OS === "android" ? "Android device" : "Mobile device");
-      const created = await createPairingSession(deviceName);
-      setPending(created);
-      setRemainingSeconds(Math.max(0, Math.ceil((created.expiresAt - Date.now()) / 1000)));
-      setLastSyncAt(null);
-      setPaired(false);
+      const result = mode === "signin"
+        ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        : await supabase.auth.signUp({ email: email.trim(), password });
+      if (result.error) throw result.error;
+      if (mode === "signup" && !result.data.session) {
+        setMessage("تم إنشاء الحساب. افتح بريدك الإلكتروني وأكّد الحساب، ثم سجّل الدخول.");
+      }
     } catch (cause) {
-      setError(errorMessage(cause, t));
+      setError(cause instanceof Error ? cause.message : "تعذرت المصادقة");
     } finally {
       setBusy(false);
     }
   };
 
-  const grantFolder = async () => {
-    setBusy(true);
-    setError(null);
+  const addFolder = async () => {
+    if (!deviceId) return;
+    setBusy(true); setError(null);
     try {
       const grant = await addFolderGrant();
       if (grant) {
-        setGrants(await listFolderGrants());
-        toast.show(t("remote.folderGrantedToast"));
+        await syncFolderGrantMetadata(deviceId, session?.user.id);
+        await refreshFolders();
+        setMessage("تم حفظ صلاحية المجلد ومزامنة بياناته الآمنة.");
       }
     } catch (cause) {
-      setError(errorMessage(cause, t));
-    } finally {
-      setBusy(false);
-    }
+      setError(cause instanceof Error ? cause.message : "تعذر منح صلاحية المجلد");
+    } finally { setBusy(false); }
   };
 
-  const removeGrant = async (grantId: string) => {
-    setBusy(true);
-    setError(null);
+  const deleteFolder = async (id: string) => {
+    if (!deviceId) return;
+    setBusy(true); setError(null);
     try {
-      await removeFolderGrant(grantId);
-      setGrants(await listFolderGrants());
-      toast.show(t("remote.folderRemovedToast"));
-    } catch {
-      setError(t("remote.folderGrantFailed"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const verifyPairing = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await completePendingPairing();
-      setPending(null);
-      setRemainingSeconds(0);
-      setPaired(true);
-      toast.show(t("remote.pairedToast"));
+      await removeFolderGrant(id);
+      await syncFolderGrantMetadata(deviceId, session?.user.id);
+      await refreshFolders();
+      setMessage("تم إلغاء صلاحية المجلد.");
     } catch (cause) {
-      setError(errorMessage(cause, t));
-    } finally {
-      setBusy(false);
-    }
+      setError(cause instanceof Error ? cause.message : "تعذر إلغاء صلاحية المجلد");
+    } finally { setBusy(false); }
   };
 
-  const disconnect = async () => {
+  const signOut = async () => {
     setBusy(true);
-    setError(null);
-    try {
-      await revokeThisDevice();
-      setPending(null);
-      setRemainingSeconds(0);
-      setLastSyncAt(null);
-      setGrants([]);
-      setPaired(false);
-      toast.show(t("remote.disconnectedToast"));
-    } catch (cause) {
-      setError(errorMessage(cause, t));
-    } finally {
-      setBusy(false);
-    }
+    const { error: signOutError } = await supabase.auth.signOut();
+    setBusy(false);
+    if (signOutError) setError(signOutError.message);
+    else setMessage("تم تسجيل الخروج من هذا الهاتف.");
   };
 
-  const copyCode = async () => {
-    if (!pending) return;
-    await Clipboard.setStringAsync(pending.pairCode);
-    toast.show(t("common.copied"));
-  };
-
-  const openDashboard = async () => {
-    try {
-      await Linking.openURL(DASHBOARD_URL);
-    } catch {
-      setError(t("remote.openDashboardFailed"));
-    }
-  };
+  if (loadingSession) {
+    return <Screen header={<AppHeader back title="الوصول البعيد" />}>
+      <Card><AppText variant="body">جارٍ تحميل جلسة الحساب...</AppText></Card>
+    </Screen>;
+  }
 
   return (
-    <Screen header={<AppHeader back title={t("remote.title")} />}>
-      <Card>
-        <AppText variant="heading">{t("remote.heading")}</AppText>
-        <AppText variant="body" color="secondary">{t("remote.intro")}</AppText>
-        <InfoMessage message={t("remote.securityNote")} />
-        <ErrorMessage message={error} />
-
-        {paired ? (
-          <View style={{ gap: spacing.md }}>
-            <InfoMessage message={t("remote.pairedStatus")} tone="success" />
-            {lastSyncAt ? <AppText variant="caption" color="secondary">{t("remote.lastSync", { time: new Date(lastSyncAt).toLocaleTimeString() })}</AppText> : null}
-            <AppText variant="caption" color="secondary">{t("remote.pairedLimitations")}</AppText>
-            <View style={{ gap: spacing.sm }}>
-              <AppText variant="subheading">{t("remote.grantedFolders")}</AppText>
-              <AppText variant="caption" color="secondary">{t("remote.folderGrantNote")}</AppText>
-              {grants.length === 0 ? (
-                <AppText variant="caption" color="secondary">{t("remote.noFolders")}</AppText>
-              ) : grants.map((grant) => (
-                <View key={grant.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
-                  <AppText variant="body" style={{ flex: 1 }}>{grant.name}</AppText>
-                  <SecondaryButton label={t("remote.removeFolder")} onPress={() => void removeGrant(grant.id)} disabled={busy} />
-                </View>
-              ))}
-              <SecondaryButton label={t("remote.grantFolder")} icon="shield-checkmark" onPress={() => void grantFolder()} disabled={busy || grants.length >= 3} />
-            </View>
-            <SecondaryButton label={t("remote.disconnect")} icon="shield-checkmark" onPress={() => void disconnect()} disabled={busy} />
+    <Screen header={<AppHeader back title="الوصول البعيد عبر Supabase" />}>
+      {!session ? (
+        <Card>
+          <AppText variant="heading">{mode === "signin" ? "تسجيل الدخول" : "إنشاء حساب"}</AppText>
+          <AppText variant="body" color="secondary">
+            استخدم البريد وكلمة المرور نفسيهما في لوحة الويب وعلى جميع هواتفك. كل هاتف سيظهر كجهاز مستقل.
+          </AppText>
+          <ErrorMessage message={error} />
+          {message ? <InfoMessage message={message} tone="success" /> : null}
+          <View style={styles.field}>
+            <AppText variant="label">البريد الإلكتروني</AppText>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              placeholder="name@example.com"
+              placeholderTextColor={colors.textSecondary}
+              style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+            />
           </View>
-        ) : pending ? (
-          <View style={{ gap: spacing.md }}>
-            <AppText variant="label" color="secondary">{t("remote.pairCodeLabel")}</AppText>
-            <View style={{ padding: spacing.lg, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", gap: spacing.sm }}>
-              <AppText variant="monoLarge" style={{ fontSize: 34, letterSpacing: 8 }}>{pending.pairCode}</AppText>
-              <AppText variant="caption" color="secondary">{t("remote.expiresIn", { seconds: remainingSeconds })}</AppText>
-              <SecondaryButton label={t("common.copy")} icon="copy" onPress={() => void copyCode()} />
-            </View>
-            <PrimaryButton label={t("remote.openDashboard")} onPress={() => void openDashboard()} />
-            <SecondaryButton label={t("remote.verifyPairing")} onPress={() => void verifyPairing()} disabled={busy} />
-            <AppText variant="caption" color="secondary">{t("remote.pairInstructions")}</AppText>
+          <View style={styles.field}>
+            <AppText variant="label">كلمة المرور</AppText>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              textContentType={mode === "signin" ? "password" : "newPassword"}
+              placeholder="••••••••"
+              placeholderTextColor={colors.textSecondary}
+              style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+            />
           </View>
-        ) : (
-          <View style={{ gap: spacing.md }}>
-            <InfoMessage message={t("remote.notPaired")} />
-            <PrimaryButton label={t("remote.createCode")} icon="shield-checkmark" onPress={() => void createCode()} loading={busy} disabled={busy} />
-          </View>
-        )}
-      </Card>
-
-      <Card>
-        <AppText variant="subheading">{t("remote.freeHeading")}</AppText>
-        <AppText variant="body" color="secondary">{t("remote.freeDescription")}</AppText>
-        <AppText variant="caption" color="secondary">{t("remote.backgroundWarning")}</AppText>
-      </Card>
+          <PrimaryButton label={busy ? "يرجى الانتظار..." : mode === "signin" ? "تسجيل الدخول" : "إنشاء الحساب"} onPress={() => void submitAuth()} disabled={busy || !email.trim() || password.length < 6} loading={busy} />
+          <SecondaryButton label={mode === "signin" ? "ليس لديك حساب؟ إنشاء حساب" : "لديك حساب؟ تسجيل الدخول"} onPress={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); setMessage(null); }} disabled={busy} />
+          <InfoMessage message="تُحفظ جلسة الهاتف في SecureStore. لا تضع مفاتيح سرية داخل التطبيق." />
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <AppText variant="heading">هذا الهاتف مرتبط بحسابك</AppText>
+            <AppText variant="body" color="secondary">{session.user.email}</AppText>
+            <InfoMessage message={deviceId ? "تم تسجيل هذا التثبيت كجهاز مستقل." : "جارٍ تسجيل الجهاز..."} tone={deviceId ? "success" : "secondary"} />
+            {deviceId ? <AppText variant="caption" color="secondary">Device ID: {deviceId}</AppText> : null}
+            {lastSync ? <AppText variant="caption" color="secondary">آخر مزامنة: {lastSync.toLocaleTimeString()}</AppText> : null}
+            <ErrorMessage message={error} />
+            {message ? <InfoMessage message={message} /> : null}
+            <SecondaryButton label="تحديث الآن" onPress={() => deviceId ? void updateCurrentDeviceHeartbeat(deviceId).then(() => processPendingSupabaseCommands(deviceId)).then(() => setLastSync(new Date())).catch(cause => setError(cause instanceof Error ? cause.message : "فشل التحديث")) : undefined} disabled={!deviceId || busy} />
+            <SecondaryButton label="تسجيل الخروج" onPress={() => void signOut()} disabled={busy} />
+          </Card>
+          <Card>
+            <AppText variant="subheading">المجلدات التي سمحت بالوصول إليها</AppText>
+            <AppText variant="body" color="secondary">اختر المجلد يدوياً من نافذة Android. يُحفظ عنوان SAF على الهاتف فقط، ويُرسل إلى الخادم اسم المجلد وبصمة غير قابلة للاستخدام كمسار.</AppText>
+            {folders.length === 0 ? <AppText variant="caption" color="secondary">لم تختر أي مجلد بعد.</AppText> : folders.map(folder => (
+              <View key={folder.id} style={styles.folderRow}>
+                <AppText variant="body" style={{ flex: 1 }}>{folder.name}</AppText>
+                <SecondaryButton label="إلغاء" onPress={() => void deleteFolder(folder.id)} disabled={busy} />
+              </View>
+            ))}
+            <PrimaryButton label="اختيار مجلد ومنح الوصول" onPress={() => void addFolder()} disabled={busy || !deviceId || folders.length >= 3} loading={busy} />
+            <AppText variant="caption" color="secondary">الحد الحالي 3 مجلدات لكل هاتف. لا يتيح التطبيق الوصول إلى ملفات التطبيقات الأخرى.</AppText>
+          </Card>
+          <Card>
+            <AppText variant="subheading">قيود الاتصال في الخلفية</AppText>
+            <AppText variant="body" color="secondary">الأوامر تُعالج عندما يكون التطبيق نشطاً حالياً. FCM وخدمة الخلفية ما زالا في مرحلة الدمج؛ الهاتف المطفي أو التطبيق الذي أُجبر على الإيقاف لا يمكنه استقبال أمر.</AppText>
+          </Card>
+        </>
+      )}
     </Screen>
   );
 }
 
-function errorMessage(cause: unknown, t: (key: TKey) => string): string {
-  const code = typeof cause === "object" && cause !== null && "code" in cause
-    ? String((cause as { code: unknown }).code)
-    : "";
-  const keys: Record<string, string> = {
-    network_error: "remote.networkError",
-    secure_storage_unavailable: "remote.secureStoreUnavailable",
-    secure_storage_write_failed: "remote.secureStoreWriteFailed",
-    pairing_expired: "remote.pairingExpired",
-    pairing_already_pending: "remote.pairingAlreadyPending",
-    device_already_paired: "remote.deviceAlreadyPaired",
-    pairing_temporarily_locked: "remote.pairingLocked",
-    pairing_rate_limited: "remote.pairingRateLimited",
-    unauthorized: "remote.unauthorized",
-    folder_grant_limit: "remote.folderLimit",
-    folder_access_not_granted: "remote.folderGrantFailed",
-    invalid_folder_grant: "remote.folderGrantFailed",
-  };
-  return t((keys[code] ?? "remote.genericError") as TKey);
-}
+const styles = StyleSheet.create({
+  field: { gap: spacing.xs },
+  input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, fontSize: 14, writingDirection: "ltr", textAlign: "left" },
+  folderRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
+});
