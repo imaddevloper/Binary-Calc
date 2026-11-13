@@ -125,30 +125,30 @@ export function TerminalScreen() {
               panel(
                 <>
                   <ActivityIndicator size="large" color={colors.accent} />
-                  <AppText variant="subheading" textAlign="center">
+                  <AppText variant="subheading" align="center">
                     {status === 'checking' ? t('terminal.checking') : t('terminal.installing')}
                   </AppText>
-                  <AppText variant="caption" color="secondary" textAlign="center">{t('terminal.installHint')}</AppText>
+                  <AppText variant="caption" color="secondary" align="center">{t('terminal.installHint')}</AppText>
                 </>
               )
             ) : status === 'missing' ? (
               panel(
                 <>
-                  <AppText variant="subheading" textAlign="center">{t('terminal.missing')}</AppText>
-                  <AppText variant="caption" color="secondary" textAlign="center">{t('terminal.installHint')}</AppText>
-                  <AppText variant="caption" color="secondary" textAlign="center">
+                  <AppText variant="subheading" align="center">{t('terminal.missing')}</AppText>
+                  <AppText variant="caption" color="secondary" align="center">{t('terminal.installHint')}</AppText>
+                  <AppText variant="caption" color="secondary" align="center">
                     {t('terminal.architecture', { arch: architecture || 'ARM' })}
                   </AppText>
                   <PrimaryButton label={t('terminal.install')} onPress={() => void install()} />
                 </>
               )
             ) : status === 'unsupported' ? (
-              panel(<AppText variant="body" color="secondary" textAlign="center">{t('terminal.unsupported')}</AppText>)
+              panel(<AppText variant="body" color="secondary" align="center">{t('terminal.unsupported')}</AppText>)
             ) : (
               panel(
                 <>
-                  <AppText variant="subheading" textAlign="center">{t('terminal.errorTitle')}</AppText>
-                  <AppText variant="caption" color="secondary" textAlign="center">{error || t('terminal.bootstrapFailed')}</AppText>
+                  <AppText variant="subheading" align="center">{t('terminal.errorTitle')}</AppText>
+                  <AppText variant="caption" color="secondary" align="center">{error || t('terminal.bootstrapFailed')}</AppText>
                   <SecondaryButton label={t('terminal.retry')} onPress={() => void inspectRuntime()} />
                   {Platform.OS === 'android' ? (
                     <PrimaryButton label={t('terminal.install')} onPress={() => void install()} />
