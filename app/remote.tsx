@@ -59,13 +59,13 @@ export default function RemoteScreen() {
     if (!session?.user?.id) return;
     let alive = true;
     void Promise.resolve().then(() => {
-      if (!alive) return;
+      if (!alive) return null;
       setBusy(true);
       setMessage("تسجيل هذا الهاتف في حسابك...");
       return registerCurrentDevice();
     })
       .then(async (id) => {
-        if (!alive) return;
+        if (!alive || !id) return;
         setDeviceId(id);
         await refreshFolders();
         setMessage("تم تسجيل هذا الهاتف. يمكنك الآن إدارة المجلدات التي اخترتها.");
