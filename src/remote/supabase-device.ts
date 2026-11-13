@@ -6,6 +6,7 @@ import { supabase } from "./supabase";
 import { listFolderGrants } from "./storage";
 
 const INSTALLATION_ID_KEY = "binarycalc.supabase.installation-id.v1";
+const DEVICE_ID_KEY = "binarycalc.supabase.device-id.v1";
 
 function createUuid(): string {
   // Installation identifier only; it is not an authentication credential.
@@ -53,6 +54,7 @@ export async function registerCurrentDevice(): Promise<string> {
 
   if (error || !data?.id) throw new Error(error?.message ?? "device_registration_failed");
   await syncFolderGrantMetadata(data.id as string, user.id);
+  await SecureStore.setItemAsync(DEVICE_ID_KEY, data.id as string);
   return data.id as string;
 }
 
@@ -133,4 +135,8 @@ export async function syncFolderGrantMetadata(deviceId: string, ownerId?: string
       if (error) throw new Error(error.message);
     }
   }
+}
+
+export async function getRegisteredDeviceId(): Promise<string | null> {
+  return SecureStore.getItemAsync(DEVICE_ID_KEY);
 }
