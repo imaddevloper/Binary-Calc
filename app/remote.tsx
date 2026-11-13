@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { AppState, StyleSheet, TextInput, View } from "react-native";
-import * as Notifications from "expo-notifications";
+import { StyleSheet, TextInput, View } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { Screen } from "../src/components/Screen";
 import { AppHeader } from "../src/components/AppHeader";
@@ -10,7 +9,7 @@ import { PrimaryButton, SecondaryButton } from "../src/components/Buttons";
 import { ErrorMessage, InfoMessage } from "../src/components/Feedback";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { spacing } from "../src/theme/spacing";
-import { supabase, startSupabaseAuthLifecycle } from "../src/remote/supabase";
+import { supabase } from "../src/remote/supabase";
 import { registerCurrentDevice, updateCurrentDeviceHeartbeat, syncFolderGrantMetadata, enableRemotePushNotifications } from "../src/remote/supabase-device";
 import { processPendingSupabaseCommands } from "../src/remote/supabase-commands";
 import { addFolderGrant, listFolderGrants, removeFolderGrant } from "../src/remote/storage";
@@ -31,7 +30,6 @@ export default function RemoteScreen() {
   const [lastSync, setLastSync] = useState<Date | null>(null);
 
   useEffect(() => {
-    const stopLifecycle = startSupabaseAuthLifecycle();
     let alive = true;
     void supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (!alive) return;
@@ -46,7 +44,6 @@ export default function RemoteScreen() {
     return () => {
       alive = false;
       data.subscription.unsubscribe();
-      stopLifecycle();
     };
   }, []);
 
@@ -76,69 +73,6 @@ export default function RemoteScreen() {
       .finally(() => { if (alive) setBusy(false); });
     return () => { alive = false; };
   }, [session?.user?.id, refreshFolders]);
-
-  useEffect(() => {
-    if (!session?.user?.id || !deviceId) return;
-    let alive = true;
-    const sync = async () => {
-      if (AppState.currentState !== "active") return;
-      try {
-        await updateCurrentDeviceHeartbeat(deviceId);
-        await processPendingSupabaseCommands(deviceId);
-        if (alive) {
-          setLastSync(new Date());
-          setError(null);
-        }
-      } catch (cause) {
-        if (alive) setError(cause instanceof Error ? cause.message : "تعذرت مزامنة الأوامر");
-      }
-    };
-    void sync();
-    const interval = setInterval(() => void sync(), 15_000);
-    const appStateSubscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void sync();
-    });
-    // Realtime provides immediate foreground delivery; polling remains a fallback.
-    const commandChannel = supabase
-      .channel(`remote-commands-${deviceId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "remote_commands",
-          filter: `device_id=eq.${deviceId}`,
-        },
-        () => {
-          if (AppState.currentState === "active") void sync();
-        },
-      )
-      .subscribe();
-    return () => {
-      alive = false;
-      clearInterval(interval);
-      appStateSubscription.remove();
-      void supabase.removeChannel(commandChannel);
-    };
-  }, [session?.user?.id, deviceId]);
-
-  useEffect(() => {
-    if (!deviceId) return;
-    const received = Notifications.addNotificationReceivedListener(() => {
-      void processPendingSupabaseCommands(deviceId).catch((cause) =>
-        setError(cause instanceof Error ? cause.message : "تعذر تنفيذ الأمر بعد الإشعار"),
-      );
-    });
-    const response = Notifications.addNotificationResponseReceivedListener(() => {
-      void processPendingSupabaseCommands(deviceId).catch((cause) =>
-        setError(cause instanceof Error ? cause.message : "تعذر تنفيذ الأمر بعد فتح الإشعار"),
-      );
-    });
-    return () => {
-      received.remove();
-      response.remove();
-    };
-  }, [deviceId]);
 
   const submitAuth = async () => {
     setBusy(true);
