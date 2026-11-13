@@ -217,6 +217,9 @@ export function TerminalScreen() {
             <AppText variant="caption" color="secondary" style={styles.tip}>{t('terminal.firstRun')}</AppText>
           </>
         ) : null}
+        {Platform.OS === 'android' ? (
+          <SecondaryButton label={t('terminal.licenses')} onPress={() => void openLicenses()} />
+        ) : null}
       </View>
       <Modal
         visible={licensesVisible}
