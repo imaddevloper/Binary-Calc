@@ -8,7 +8,7 @@ const {
 const withEmbeddedTermux = (config) => {
   config = withProjectBuildGradle(config, (mod) => {
     let contents = mod.modResults.contents;
-    if (!contents.includes("https://jitpack.io")) {
+    if (!contents.includes('jitpack.io')) {
       const anchor = /allprojects\s*\{\s*repositories\s*\{/;
       if (!anchor.test(contents)) {
         throw new Error('Embedded Termux: could not locate allprojects.repositories in android/build.gradle');
