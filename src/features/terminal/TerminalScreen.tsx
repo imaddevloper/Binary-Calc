@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, NativeModules, Platform, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, NativeModules, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppHeader } from '../../components/AppHeader';
 import { AppText } from '../../components/Text';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -17,9 +17,21 @@ interface RuntimeInfo {
   architecture: string;
 }
 
+const QUICK_KEYS = [
+  { label: 'ESC', value: '\u001b' },
+  { label: 'TAB', value: '\t' },
+  { label: 'CTRL+C', value: '\u0003' },
+  { label: 'CTRL+D', value: '\u0004' },
+  { label: '↑', value: '\u001b[A' },
+  { label: '↓', value: '\u001b[B' },
+  { label: '←', value: '\u001b[D' },
+  { label: '→', value: '\u001b[C' },
+];
+
 interface EmbeddedTermuxBridge {
   getRuntimeStatus: () => Promise<RuntimeInfo>;
   installBootstrap: () => Promise<RuntimeInfo>;
+  sendText: (text: string) => Promise<boolean>;
 }
 
 export function TerminalScreen() {
@@ -55,6 +67,16 @@ export function TerminalScreen() {
   useEffect(() => {
     void inspectRuntime();
   }, [inspectRuntime]);
+
+  const sendKey = useCallback(async (value: string) => {
+    const bridge = NativeModules.EmbeddedTermux as EmbeddedTermuxBridge | undefined;
+    if (!bridge) return;
+    try {
+      await bridge.sendText(value);
+    } catch (reason) {
+      Alert.alert(t('terminal.errorTitle'), reason instanceof Error ? reason.message : String(reason));
+    }
+  }, [t]);
 
   const install = useCallback(async () => {
     const bridge = NativeModules.EmbeddedTermux as EmbeddedTermuxBridge | undefined;
@@ -160,7 +182,25 @@ export function TerminalScreen() {
         )}
 
         {status === 'ready' ? (
-          <AppText variant="caption" color="secondary" style={styles.tip}>{t('terminal.firstRun')}</AppText>
+          <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.keyBar}>
+              {QUICK_KEYS.map((item) => (
+                <Pressable
+                  key={item.label}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                  onPress={() => void sendKey(item.value)}
+                  style={({ pressed }) => [
+                    styles.keyButton,
+                    { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.65 : 1 },
+                  ]}
+                >
+                  <AppText variant="caption" color="primary" style={styles.keyLabel}>{item.label}</AppText>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <AppText variant="caption" color="secondary" style={styles.tip}>{t('terminal.firstRun')}</AppText>
+          </>
         ) : null}
       </View>
     </Screen>
@@ -180,5 +220,8 @@ const styles = StyleSheet.create({
   trafficLight: { width: 8, height: 8, borderRadius: 4 },
   terminal: { flex: 1, width: '100%', backgroundColor: '#0B0B0F' },
   terminalFooter: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: '#292934', backgroundColor: '#14141A' },
+  keyBar: { flexDirection: 'row', gap: spacing.xs, paddingVertical: spacing.xs },
+  keyButton: { minWidth: 42, height: 36, paddingHorizontal: spacing.sm, borderWidth: 1, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  keyLabel: { fontWeight: '700' },
   tip: { paddingBottom: spacing.xs },
 });
