@@ -56,11 +56,12 @@ jobs:
       - name: Build the official apt-android-7 bootstrap from pinned Termux sources
         working-directory: termux-packages
         shell: bash
-        env:
-          TERMUX_DOCKER_RUN_EXTRA_ARGS: --security-opt apparmor=unconfined
         run: |
           set -euo pipefail
-          ./scripts/run-docker.sh ./scripts/build-bootstraps.sh -f --architectures "${{ matrix.arch }}"
+          # The container is fresh, so no force-clean is needed. The pinned upstream
+          # build-bootstraps.sh currently references an unset *_FOR_ARCH variable
+          # when -f is passed, which expands to a dangerous root glob.
+          ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}"
           test -s "bootstrap-${{ matrix.arch }}.zip"
           sha256sum "bootstrap-${{ matrix.arch }}.zip"
 
