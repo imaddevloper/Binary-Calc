@@ -1,6 +1,6 @@
 # Termux upstream source and licensing manifest
 
-This is the initial source pin for the embedded Termux investigation. It does not mean that upstream code has already been vendored or linked into Binary-Calc.
+This manifest records the pinned upstream libraries and package sources used by the embedded Termux implementation. The terminal libraries are consumed as a pinned JitPack dependency; the app-specific bootstrap is built from the separately pinned termux-packages source in GitHub Actions.
 
 ## Pinned upstream revision
 
@@ -41,11 +41,11 @@ This is the initial source pin for the embedded Termux investigation. It does no
 
 ## Compliance checklist before distribution
 
-- [ ] Download and retain the exact upstream license texts and copyright notices for every imported source file.
+- [x] Include the applicable GPL-3.0 and Apache-2.0 license texts and third-party notice files in the Android build assets.
 - [ ] Audit the complete bootstrap archive and every included package license.
 - [ ] Mark all local modifications to GPL-covered source files.
 - [ ] Provide the corresponding source, build scripts and installation scripts for GPL-covered distributed binaries.
-- [ ] Add a user-visible third-party notices screen or document.
+- [ ] Wire the native license-notices bridge to a user-visible Licenses & Notices screen in the app.
 - [ ] Confirm all included dependencies are compatible with the combined distribution.
 - [ ] Have the final source-offer/distribution method reviewed before publishing a release.
 
