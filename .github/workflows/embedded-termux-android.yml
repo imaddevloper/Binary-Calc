@@ -78,6 +78,7 @@ jobs:
           sha256sum "bootstrap-${{ matrix.arch }}.zip"
           mkdir -p ../termux-bootstrap-artifacts
           cp "bootstrap-${{ matrix.arch }}.zip" ../termux-bootstrap-artifacts/
+          sha256sum "bootstrap-${{ matrix.arch }}.zip" | awk '{print $1}' > "../termux-bootstrap-artifacts/bootstrap-${{ matrix.arch }}.zip.sha256"
           bash ../scripts/generate-termux-bootstrap-notices.sh "$PWD" "${{ matrix.arch }}" "../termux-bootstrap-artifacts/termux-bootstrap-packages-${{ matrix.arch }}.csv"
           git rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt
 
@@ -112,7 +113,10 @@ jobs:
           cd modules/embedded-termux/android/src/main/assets
           mv bootstrap-aarch64.zip termux-bootstrap-aarch64.zip
           mv bootstrap-arm.zip termux-bootstrap-arm.zip
-          sha256sum termux-bootstrap-*.zip
+          mv bootstrap-aarch64.zip.sha256 termux-bootstrap-aarch64.zip.sha256
+          mv bootstrap-arm.zip.sha256 termux-bootstrap-arm.zip.sha256
+          sha256sum -c termux-bootstrap-aarch64.zip.sha256
+          sha256sum -c termux-bootstrap-arm.zip.sha256
           cp "$GITHUB_WORKSPACE/LICENSE" BinaryCalc-GPL-3.0.txt
           cp "$GITHUB_WORKSPACE/LICENSES/Apache-2.0.txt" Apache-2.0.txt
           cp "$GITHUB_WORKSPACE/NOTICE" NOTICE.txt
