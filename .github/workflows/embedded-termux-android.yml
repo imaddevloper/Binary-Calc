@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/embedded-termux-engine
+      - fix/termux-bootstrap-output-permissions
     paths:
       - ".github/workflows/embedded-termux-android.yml"
       - "app.json"
@@ -26,8 +27,7 @@ permissions:
 
 concurrency:
   group: embedded-termux-${{ github.ref }}
-  # Do not kill multi-hour bootstrap builds on every follow-up push.
-  # GitHub keeps the running build and queues the latest pending revision.
+  # Keep expensive bootstrap work alive; GitHub queues the latest push per ref.
   cancel-in-progress: false
 
 jobs:
@@ -72,9 +72,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # In this pinned Termux revision, the bootstrap still requests the
-          # old package name "bzip2", but its source package is now "libbz2".
-          # libbz2 produces the required bzip2 subpackage.
+          # The pinned Termux revision moved the bzip2 source to libbz2;
+          # libbz2 still emits the runtime bzip2 subpackage.
           test -f packages/libbz2/build.sh
           test -f packages/libbz2/bzip2.subpackage.sh
           grep -Fq 'PACKAGES+=("bzip2")' scripts/build-bootstraps.sh
@@ -84,7 +83,6 @@ jobs:
             echo "::error::Stale bzip2 bootstrap package reference remains."
             exit 1
           fi
-          # Fail early if another pinned bootstrap package was renamed or removed.
           required_packages=(
             apt bash libbz2 command-not-found coreutils dash diffutils findutils
             gawk grep gzip less procps psmisc sed tar termux-core termux-exec
@@ -99,16 +97,38 @@ jobs:
           done
           echo "Bootstrap package/source preflight passed."
 
+      - name: Verify builder can write the checked-out source volume
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe=".termux-bootstrap-write-test"
+          rm -f "$probe"
+          # Termux's pinned Dockerfile runs the build user as UID/GID 1001.
+          # GitHub-hosted Ubuntu runners may expose a read-only checkout mode
+          # for that UID on the bind mount. Grant write access only to this
+          # ephemeral checked-out source directory and immediately verify it.
+          chmod ugo+rwx .
+          ./scripts/run-docker.sh bash -lc '
+            set -euo pipefail
+            probe="/home/builder/termux-packages/.termux-bootstrap-write-test"
+            printf "termux docker write probe\\n" > "$probe"
+            test -s "$probe"
+            rm -f "$probe"
+            printf "Docker builder UID: "; id -u
+            printf "Docker builder GID: "; id -g
+            test -w /home/builder/termux-packages
+          '
+          test ! -e "$probe"
+
       - name: Build the official apt-android-7 bootstrap from pinned Termux sources
         working-directory: termux-packages
         shell: bash
         run: |
           set -euo pipefail
-          # The container is fresh, so no force-clean is needed. The pinned upstream
-          # build-bootstraps.sh currently references an unset *_FOR_ARCH variable
-          # when -f is passed, which expands to a dangerous root glob.
-          # Retry the bootstrap build when an upstream source host temporarily times out.
-          # Keep retries inside the same runner so already-built packages remain cached.
+          # Use the official upstream bootstrap script with the single pinned
+          # package rename above; retain the same runner cache for transient
+          # upstream source-host failures.
           build_succeeded=0
           for attempt in 1 2 3; do
             echo "Bootstrap build attempt ${attempt}/3 for ${{ matrix.arch }}"
@@ -132,7 +152,7 @@ jobs:
           cp "bootstrap-${{ matrix.arch }}.zip" ../termux-bootstrap-artifacts/
           sha256sum "bootstrap-${{ matrix.arch }}.zip" | awk '{print $1}' > "../termux-bootstrap-artifacts/bootstrap-${{ matrix.arch }}.zip.sha256"
           bash ../scripts/generate-termux-bootstrap-notices.sh "$PWD" "${{ matrix.arch }}" "../termux-bootstrap-artifacts/termux-bootstrap-packages-${{ matrix.arch }}.csv"
-          git rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt
+          git rev-parse HEAD > "../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt"
 
       - name: Upload custom bootstrap
         uses: actions/upload-artifact@v4
