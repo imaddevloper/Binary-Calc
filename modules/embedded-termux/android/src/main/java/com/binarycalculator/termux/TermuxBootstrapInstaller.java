@@ -144,9 +144,17 @@ final class TermuxBootstrapInstaller {
                     }
                     String permissionPath = name;
                     while (permissionPath.startsWith("./")) permissionPath = permissionPath.substring(2);
-                    if (permissionPath.startsWith("bin/") || permissionPath.startsWith("libexec/")
+                    boolean executableRuntimeFile = permissionPath.startsWith("bin/")
+                            || permissionPath.startsWith("libexec/")
                             || permissionPath.equals("lib/apt/apt-helper")
-                            || permissionPath.startsWith("lib/apt/methods/")) {
+                            || permissionPath.startsWith("lib/apt/methods/");
+                    // The second-stage bootstrap executes Debian postinst scripts directly.
+                    // ZipInputStream does not preserve Unix executable bits, so restore them
+                    // explicitly or package configuration fails with EACCES on first launch.
+                    boolean executablePostinst = permissionPath.startsWith("var/lib/dpkg/info/")
+                            && permissionPath.endsWith(".postinst")
+                            && permissionPath.indexOf('/', "var/lib/dpkg/info/".length()) < 0;
+                    if (executableRuntimeFile || executablePostinst) {
                         Os.chmod(target.getAbsolutePath(), 0700);
                     }
                 }
