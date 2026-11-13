@@ -26,7 +26,7 @@ permissions:
 
 concurrency:
   group: embedded-termux-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   bootstrap:
