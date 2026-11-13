@@ -6,6 +6,8 @@ import android.content.Context;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.os.VibrationEffect;
+import android.os.Process;
+import android.os.UserHandle;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -57,19 +59,35 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
             File prefix = TermuxBootstrapInstaller.getPrefix(getContext());
             File home = new File(files, "home");
             File bash = new File(prefix, "bin/bash");
+            String architecture = TermuxBootstrapInstaller.getSupportedArchitecture();
+            String uid = String.valueOf(Process.myUid());
+            String userId = String.valueOf(UserHandle.myUserId());
+            String termuxExec = new File(prefix, "lib/libtermux-exec.so").getAbsolutePath();
             String[] env = new String[] {
                 "HOME=" + home.getAbsolutePath(),
                 "PREFIX=" + prefix.getAbsolutePath(),
                 "PATH=" + new File(prefix, "bin").getAbsolutePath(),
                 "TMPDIR=" + new File(prefix, "tmp").getAbsolutePath(),
+                "LD_PRELOAD=" + termuxExec,
                 "LANG=en_US.UTF-8",
                 "TERM=xterm-256color",
                 "COLORTERM=truecolor",
                 "TERMUX_VERSION=0.118.0",
+                "TERMUX_PACKAGE_MANAGER=apt",
+                "TERMUX_PACKAGE_ARCH=" + architecture,
                 "TERMUX_APP__PACKAGE_NAME=" + getContext().getPackageName(),
                 "TERMUX_APP__VERSION_NAME=1.0.0",
                 "TERMUX_APP__VERSION_CODE=1",
+                "TERMUX_APP__UID=" + uid,
+                "TERMUX_APP__USER_ID=" + userId,
+                "TERMUX_APP__TARGET_SDK=" + getContext().getApplicationInfo().targetSdkVersion,
+                "TERMUX_APP__PACKAGE_MANAGER=apt",
+                "TERMUX_APP__PACKAGE_VARIANT=apt-android-7",
                 "TERMUX_APP__FILES_DIR=" + files.getAbsolutePath(),
+                "TERMUX__UID=" + uid,
+                "TERMUX__USER_ID=" + userId,
+                "TERMUX__ROOTFS=" + files.getAbsolutePath(),
+                "TERMUX__HOME=" + home.getAbsolutePath(),
                 "TERMUX__PREFIX=" + prefix.getAbsolutePath()
             };
             session = new TerminalSession(
