@@ -29,7 +29,7 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
         super(context, null);
         setFocusable(true);
         setFocusableInTouchMode(true);
-        setTextSize(fontSize);
+        setTextSize(Math.round(fontSize * getResources().getDisplayMetrics().scaledDensity));
         setTypeface(Typeface.MONOSPACE);
         setTerminalViewClient(this);
         setBackgroundColor(0xFF0B0B0F);
@@ -40,7 +40,7 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
 
     void setFontSize(int size) {
         fontSize = Math.max(10, Math.min(24, size));
-        setTextSize(fontSize);
+        setTextSize(Math.round(fontSize * getResources().getDisplayMetrics().scaledDensity));
     }
 
     void startSessionIfReady() {
@@ -65,7 +65,7 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
                 "LANG=en_US.UTF-8",
                 "TERM=xterm-256color",
                 "COLORTERM=truecolor",
-                "TERMUX_VERSION=0.119.0",
+                "TERMUX_VERSION=0.118.0",
                 "TERMUX_APP__PACKAGE_NAME=" + getContext().getPackageName(),
                 "TERMUX_APP__VERSION_NAME=1.0.0",
                 "TERMUX_APP__VERSION_CODE=1",
