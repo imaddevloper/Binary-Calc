@@ -26,18 +26,36 @@ for deb in "${debs[@]}"; do
   version="$(dpkg-deb -f "$deb" Version)"
   package_arch="$(dpkg-deb -f "$deb" Architecture)"
 
-  source_script="$(find "$packages_root" -type f -path "*/$package/build.sh" -not -path '*/.git/*' -print -quit || true)"
-  license="UNRESOLVED - inspect upstream package metadata"
+  source_script=""
   source_relative="NOT_FOUND"
+  subpackage_script="$(find "$packages_root/packages" -type f -name "$package.subpackage.sh" -not -path '*/.git/*' -print -quit || true)"
 
-  if [[ -n "$source_script" ]]; then
+  if [[ -f "$packages_root/packages/$package/build.sh" ]]; then
+    source_script="$packages_root/packages/$package/build.sh"
     source_relative="${source_script#"$packages_root"/}"
+  elif [[ -n "$subpackage_script" ]]; then
+    # Split packages inherit their license from the parent package build.sh.
+    parent_dir="$(dirname "$subpackage_script")"
+    if [[ -f "$parent_dir/build.sh" ]]; then
+      source_script="$parent_dir/build.sh"
+      source_relative="${source_script#"$packages_root"/} (subpackage: ${subpackage_script#"$packages_root"/})"
+    fi
+  fi
+
+  license="UNRESOLVED - inspect upstream package metadata"
+  if [[ -n "$source_script" ]]; then
     raw_license="$(grep -E '^[[:space:]]*TERMUX_PKG_LICENSE=' "$source_script" | head -n 1 || true)"
     if [[ -n "$raw_license" ]]; then
       license="$(printf '%s' "${raw_license#*=}" | tr -d '"' | tr -d "'")"
     fi
   fi
 
+  # Quote CSV fields and escape embedded quotes.
+  package="${package//\"/\"\"}"
+  version="${version//\"/\"\"}"
+  package_arch="${package_arch//\"/\"\"}"
+  license="${license//\"/\"\"}"
+  source_relative="${source_relative//\"/\"\"}"
   printf '"%s","%s","%s","%s","%s"\n' \
     "$package" "$version" "$package_arch" "$license" "$source_relative" >> "$output_file"
 done
