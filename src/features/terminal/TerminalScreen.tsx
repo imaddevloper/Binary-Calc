@@ -215,7 +215,7 @@ export function TerminalScreen() {
                     { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.65 : 1 },
                   ]}
                 >
-                  <AppText variant="caption" color="primary" style={styles.keyLabel}>{item.label}</AppText>
+                  <AppText variant="caption" color="accent" style={styles.keyLabel}>{item.label}</AppText>
                 </Pressable>
               ))}
             </ScrollView>
