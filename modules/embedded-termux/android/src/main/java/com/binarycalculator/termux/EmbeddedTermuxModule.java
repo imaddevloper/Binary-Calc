@@ -53,12 +53,16 @@ public final class EmbeddedTermuxModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void getLicenseNotices(Promise promise) {
         try {
-            String architecture = TermuxBootstrapInstaller.getSupportedArchitecture();
             StringBuilder notices = new StringBuilder();
             appendAsset(notices, "NOTICE.txt");
             appendAsset(notices, "BinaryCalc-GPL-3.0.txt");
             appendAsset(notices, "Apache-2.0.txt");
-            appendAsset(notices, "termux-bootstrap-packages-" + architecture + ".csv");
+            try {
+                String architecture = TermuxBootstrapInstaller.getSupportedArchitecture();
+                appendAsset(notices, "termux-bootstrap-packages-" + architecture + ".csv");
+            } catch (IllegalStateException unsupportedAbi) {
+                notices.append("\\n\\nBootstrap package inventory is available for ARM architectures only.\\n");
+            }
             promise.resolve(notices.toString());
         } catch (Exception error) {
             promise.reject("TERMUX_LICENSE_NOTICES_FAILED", error);
