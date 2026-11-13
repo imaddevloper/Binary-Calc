@@ -88,6 +88,13 @@ final class TermuxBootstrapInstaller {
             byte[] buffer = new byte[32 * 1024];
             while ((entry = zip.getNextEntry()) != null) {
                 String name = entry.getName();
+                // ZIP tools may preserve a leading "./" depending on platform/version.
+                // Normalize it before recognizing bootstrap metadata or validating paths.
+                while (name.startsWith("./")) name = name.substring(2);
+                if (name.isEmpty() && entry.isDirectory()) {
+                    zip.closeEntry();
+                    continue;
+                }
                 if ("SYMLINKS.txt".equals(name)) {
                     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
                     int count;
