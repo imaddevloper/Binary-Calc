@@ -325,6 +325,7 @@ final class TermuxBootstrapInstaller {
                 new java.io.FileInputStream("/proc/self/attr/current"), StandardCharsets.UTF_8))) {
             String processContext = reader.readLine();
             if (processContext != null && !processContext.isEmpty()) {
+                environment.put("TERMUX__SE_PROCESS_CONTEXT", processContext);
                 environment.put("TERMUX_APP__SE_PROCESS_CONTEXT", processContext);
             }
         } catch (Exception ignored) {
