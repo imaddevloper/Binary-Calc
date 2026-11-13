@@ -62,7 +62,12 @@ export function TerminalScreen() {
       setArchitecture(runtime.architecture);
       setStatus(runtime.installed ? 'ready' : 'missing');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      const message = reason instanceof Error ? reason.message : String(reason);
+      if (message.includes('ARM Android devices only')) {
+        setStatus('unsupported');
+        return;
+      }
+      setError(message);
       setStatus('error');
     }
   }, []);
