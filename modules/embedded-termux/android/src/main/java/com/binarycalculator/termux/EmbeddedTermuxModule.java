@@ -61,7 +61,7 @@ public final class EmbeddedTermuxModule extends ReactContextBaseJavaModule {
                 String architecture = TermuxBootstrapInstaller.getSupportedArchitecture();
                 appendAsset(notices, "termux-bootstrap-packages-" + architecture + ".csv");
             } catch (IllegalStateException unsupportedAbi) {
-                notices.append("\\n\\nBootstrap package inventory is available for ARM architectures only.\\n");
+                notices.append("\n\nBootstrap package inventory is available for ARM architectures only.\n");
             }
             promise.resolve(notices.toString());
         } catch (Exception error) {
