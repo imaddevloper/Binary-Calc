@@ -6,8 +6,8 @@ This manifest records the pinned upstream libraries and package sources used by 
 
 - Repository: https://github.com/termux/termux-app
 - Revision: `8629e632fcb95da272221be327db653fb24befe9` (master head checked 2026-11-13)
-- Published release note: the newest GitHub release returned by the releases endpoint remains `v0.119.0-beta.3` (2025-05-22); this implementation intentionally pins the newer source revision instead of relying on that older prebuilt APK.
-- Gradle terminal library pin: JitPack commit `8629e632fc` for `com.termux.termux-app:terminal-view`.
+- Upstream README stable-release note: `v0.118.3`. The pinned master source reports Gradle `versionName 0.118.0` and `versionCode 118`, while including later master commits. The implementation pins the exact master commit rather than using a floating branch or a prebuilt standalone Termux APK.
+- Gradle terminal library pin: JitPack commit `8629e632fc` for `com.termux.termux-app:terminal-view`; `terminal-emulator` is imported transitively as documented by Termux. The Gradle module also includes the upstream-required empty Guava ListenableFuture compatibility dependency.
 - Revision URL: https://github.com/termux/termux-app/commit/8629e632fcb95da272221be327db653fb24befe9
 - Audited source date: 2026-11-13
 - Do not use a floating `master-SNAPSHOT` or unpinned dependency in release builds.
@@ -25,9 +25,9 @@ This manifest records the pinned upstream libraries and package sources used by 
 
 | Component | Upstream location | License note | Planned use |
 |---|---|---|---|
-| Termux Android app/runtime integration | `app/` | GPL-3.0-only per upstream `LICENSE.md` | Reference/fork selected installer, lifecycle and runtime integration code as required |
-| Terminal emulator | `terminal-emulator/` | Apache-2.0 exception identified by upstream `LICENSE.md` | Upstream terminal emulator and PTY/session implementation |
-| Terminal view | `terminal-view/` | Apache-2.0 exception identified by upstream `LICENSE.md` | Upstream Android terminal view |
+| Termux Android app/runtime integration | `app/` | GPL-3.0-only per upstream `LICENSE.md` | Reference only; the Binary-Calc bridge is its own implementation |
+| Terminal emulator | `terminal-emulator/` | Apache-2.0 exception identified by upstream `LICENSE.md` | Imported transitively by the pinned `terminal-view` library |
+| Terminal view | `terminal-view/` | Apache-2.0 exception identified by upstream `LICENSE.md` | Direct pinned Gradle dependency used by the native view manager |
 | Shared utilities | `termux-shared/` | Mixed; see `termux-shared/LICENSE.md`, including GPLv3-only exceptions for `com/termux/shared/termux/*` | Use only required classes after per-file license review |
 | Bootstrap and packages | https://github.com/termux/termux-packages | Each package has its own license; bootstrap archives must be audited as a collection | Rebuild bootstrap for Binary-Calc's package ID and prefix |
 
