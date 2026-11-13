@@ -66,11 +66,11 @@ public final class EmbeddedTermuxModule extends ReactContextBaseJavaModule {
     }
 
     private void appendAsset(StringBuilder target, String assetName) throws Exception {
-        target.append("\\n\\n===== ").append(assetName).append(" =====\\n");
+        target.append("\n\n===== ").append(assetName).append(" =====\n");
         try (InputStream input = getReactApplicationContext().getAssets().open(assetName);
              BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
             String line;
-            while ((line = reader.readLine()) != null) target.append(line).append('\\n');
+            while ((line = reader.readLine()) != null) target.append(line).append('\n');
         }
     }
 
