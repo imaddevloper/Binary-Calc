@@ -1,84 +1,23 @@
 # Supabase remote access foundation
 
-This directory contains the first migration for Binary-Calc's optional multi-device remote-access feature.
+This directory documents Binary-Calc's optional multi-device remote-access feature.
 
-## Architecture decision
+## Architecture
+- Auth: one owner account is used on the web dashboard and the owner's phones.
+- Postgres: device inventory, approved folder metadata, and remote commands.
+- Realtime: device and command updates.
+- FCM: optional push notifications for command delivery.
 
-Use one Supabase project for:
-- **Auth**: the owner signs in on each phone and in the web dashboard using the same account.
-- **Postgres**: device inventory, folder-grant metadata, remote commands, and transfer metadata.
-- **Realtime**: live command and device-status updates.
-- **Storage**: private file objects, protected by Storage RLS.
-- **Edge Functions (next stage)**: trusted operations such as push delivery, cleanup, and signed transfer workflows.
+Binary image/file transfer and cloud file storage have been intentionally removed. The application retains only user-approved folder metadata and limited text/directory commands. No binary file, photo, or media upload/download is implemented.
 
-The previous Cloudflare Worker remote backend is not part of this new path. The existing Firebase Android configuration may remain only for Android push delivery (FCM); Firebase is not used as the database or file backend.
+## Privacy and safety
+- The app uses only the public Supabase publishable key; RLS enforces owner-scoped access.
+- Raw Android SAF content URIs remain on the device.
+- The server stores only approved folder labels, opaque grant IDs, and one-way fingerprints.
+- No shell commands, arbitrary paths, hidden collection, or access to other apps' private data are supported.
+- Commands run while the app is active. Realtime/FCM do not guarantee delivery to a powered-off or force-stopped phone.
 
-## Why same-account sign-in first?
+## Migrations
+The initial migrations establish device registration, approved folder metadata, commands, and owner-scoped RLS. The later remove_binary_file_transfers migration removes the transfer table and private storage bucket after confirming they contain no records or objects.
 
-It is the simplest reliable pairing model for a personal multi-phone setup: sign in to the same owner account on every phone. Each installation registers a separate device row. The dashboard can target one device or all devices. We avoid a second custom pairing-token protocol in the first iteration.
-
-This means every signed-in device belongs to the same trusted account. Protect the account with a strong password and do not sign in on devices you do not control. A later release can add device-specific authorization if the threat model requires it.
-
-## Migration
-
-These migration filenames intentionally match the versions already applied to the connected Supabase project. Do not rename or squash them unless the database migration history is reconciled first. The repository now contains the matching applied versions. Apply any future migrations in order using the Supabase CLI:
-
-```bash
-npx supabase login
-npx supabase link --project-ref YOUR_PROJECT_REF
-npx supabase db push
-```
-
-Or paste the migration file into the Supabase SQL Editor:
-
-`migrations/20261113085823_binary_calc_remote_access_foundation.sql`, `migrations/20261113085845_index_remote_access_foreign_keys.sql`, and `migrations/20261113091321_remote_folder_client_grant_id.sql`
-
-The migration creates:
-- `remote_devices`
-- `remote_folder_grants` (stores only folder label, opaque client grant ID, and one-way fingerprint; no raw SAF URI)
-- `remote_commands`
-- `remote_file_transfers`
-- Private Storage bucket `binary-calc-device-files` (50 MiB per object)
-- Row Level Security policies and Realtime publication entries
-
-## Storage object path
-
-Use this shape for every private object:
-
-```text
-<auth-user-id>/<device-id>/<transfer-id>/<safe-file-name>
-```
-
-Never put a raw Android Storage Access Framework URI in Postgres. Keep the actual persisted SAF permission/URI on the originating phone in secure local storage. The database stores only the folder label and a one-way fingerprint.
-
-## Client configuration
-
-The Expo client integration modules now use only public client configuration:
-
-```dotenv
-EXPO_PUBLIC_SUPABASE_URL=https://cmaddeurguhfywiuqvax.supabase.co
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_kmwA8yXWnjaYgYu6w5Kd_Q_LfFqAqiO
-```
-
-A publishable key is intended for the client, but it is **not** an authorization boundary: RLS is. Never add a Supabase `service_role` or secret key to the app, web bundle, GitHub, or a Python script distributed to users.
-
-## File-transfer safeguards
-
-- Files are uploaded only after a user explicitly selects them or approves a previously granted folder.
-- Private Storage only; no public bucket.
-- Per-object upload cap is currently 50 MiB.
-- Transfer metadata expires after 24 hours by default; a scheduled cleanup function is still required before production.
-- The app must validate file size, MIME type, safe display name, destination grant, and checksum.
-- Do not allow shell commands, arbitrary paths, hidden file collection, or access to another app's private data.
-
-## Push and background behavior
-
-Realtime works while a client has an active network connection and subscription. It is not a guaranteed wake-up mechanism for a suspended Android app. The `send-device-push` Edge Function is deployed and uses Firebase Cloud Messaging. Set the `FCM_SERVICE_ACCOUNT_JSON` Edge Function secret before expecting push delivery. Android still cannot receive commands when powered off or force-stopped. A powered-off phone, force-stopped app, or unavailable network cannot receive commands.
-
-## Python
-
-Python is not required inside the Android application. If useful, a later optional desktop utility can use the official Supabase Python client for authenticated export/download and checksum verification. It must use a user session or short-lived signed URLs; never ship a service-role key in that utility.
-
-## Status
-
-Current progress: Supabase client/auth lifecycle, the Android remote-screen sign-in/sign-up flow, per-installation device registration, privacy-preserving folder-grant metadata sync, and a foreground command-queue processor are present on the feature branch. The standalone Arabic RTL web dashboard project is supplied separately. Bounded binary transfer workers now read/write only within user-granted SAF folders and use private Storage; the mobile transfer cap is 15 MiB to avoid high memory pressure. FCM service-account secret configuration, expiry cleanup, full CI validation, and real-device end-to-end tests remain pending. Do not merge into `main` until the remaining stages and Android device tests pass.
+Never add a Supabase service-role or secret key to the app, web bundle, or repository.
