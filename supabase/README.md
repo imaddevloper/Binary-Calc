@@ -56,8 +56,8 @@ Never put a raw Android Storage Access Framework URI in Postgres. Keep the actua
 The Expo client integration modules now use only public client configuration:
 
 ```dotenv
-EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+EXPO_PUBLIC_SUPABASE_URL=https://cmaddeurguhfywiuqvax.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_kmwA8yXWnjaYgYu6w5Kd_Q_LfFqAqiO
 ```
 
 A publishable key is intended for the client, but it is **not** an authorization boundary: RLS is. Never add a Supabase `service_role` or secret key to the app, web bundle, GitHub, or a Python script distributed to users.
@@ -73,7 +73,7 @@ A publishable key is intended for the client, but it is **not** an authorization
 
 ## Push and background behavior
 
-Realtime works while a client has an active network connection and subscription. It is not a guaranteed wake-up mechanism for a suspended Android app. Android push notifications (FCM/Expo Push) are a separate delivery path and will be implemented in a later stage. A powered-off phone, force-stopped app, or unavailable network cannot receive commands.
+Realtime works while a client has an active network connection and subscription. It is not a guaranteed wake-up mechanism for a suspended Android app. The `send-device-push` Edge Function is deployed and uses Firebase Cloud Messaging. Set the `FCM_SERVICE_ACCOUNT_JSON` Edge Function secret before expecting push delivery. Android still cannot receive commands when powered off or force-stopped. A powered-off phone, force-stopped app, or unavailable network cannot receive commands.
 
 ## Python
 
@@ -81,4 +81,4 @@ Python is not required inside the Android application. If useful, a later option
 
 ## Status
 
-Current progress: Supabase client/auth lifecycle, the Android remote-screen sign-in/sign-up flow, per-installation device registration, privacy-preserving folder-grant metadata sync, and a foreground command-queue processor are present on the feature branch. The standalone Arabic RTL web dashboard project is supplied separately. Bounded binary transfer workers now read/write only within user-granted SAF folders and use private Storage; the mobile transfer cap is 15 MiB to avoid high memory pressure. FCM delivery, expiry cleanup, full CI validation, and real-device end-to-end tests remain pending. Do not merge into `main` until the remaining stages and Android device tests pass.
+Current progress: Supabase client/auth lifecycle, the Android remote-screen sign-in/sign-up flow, per-installation device registration, privacy-preserving folder-grant metadata sync, and a foreground command-queue processor are present on the feature branch. The standalone Arabic RTL web dashboard project is supplied separately. Bounded binary transfer workers now read/write only within user-granted SAF folders and use private Storage; the mobile transfer cap is 15 MiB to avoid high memory pressure. FCM service-account secret configuration, expiry cleanup, full CI validation, and real-device end-to-end tests remain pending. Do not merge into `main` until the remaining stages and Android device tests pass.
