@@ -42,7 +42,7 @@ const OUTLINE: Record<IconName, keyof typeof Ionicons.glyphMap> = {
   'shield-checkmark': 'shield-checkmark-outline',
   repeat: 'repeat-outline',
   create: 'create-outline',
-  terminal: 'terminal-outline',
+  terminal: 'code-slash-outline',
   'chevron-down': 'chevron-down',
   'chevron-up': 'chevron-up',
   'phone-portrait': 'phone-portrait-outline',
