@@ -95,7 +95,7 @@ export async function syncFolderGrantMetadata(deviceId: string, ownerId?: string
   const grants = await listFolderGrants();
   const rows = await supabase
     .from("remote_folder_grants")
-    .select("id,uri_fingerprint")
+    .select("id,client_grant_id,uri_fingerprint")
     .eq("owner_id", user.id)
     .eq("device_id", deviceId);
 
@@ -117,10 +117,11 @@ export async function syncFolderGrantMetadata(deviceId: string, ownerId?: string
       .upsert({
         owner_id: user.id,
         device_id: deviceId,
+        client_grant_id: grant.id,
         display_name: grant.name.slice(0, 120),
         uri_fingerprint: grant.fingerprint,
         revoked_at: null,
-      }, { onConflict: "device_id,uri_fingerprint" });
+      }, { onConflict: "device_id,client_grant_id" });
     if (error) throw new Error(error.message);
   }
 
