@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { AppState, StyleSheet, TextInput, View } from "react-native";
+import * as Notifications from "expo-notifications";
 import type { Session } from "@supabase/supabase-js";
 import { Screen } from "../src/components/Screen";
 import { AppHeader } from "../src/components/AppHeader";
@@ -103,6 +104,24 @@ export default function RemoteScreen() {
       subscription.remove();
     };
   }, [session?.user?.id, deviceId]);
+
+  useEffect(() => {
+    if (!deviceId) return;
+    const received = Notifications.addNotificationReceivedListener(() => {
+      void processPendingSupabaseCommands(deviceId).catch((cause) =>
+        setError(cause instanceof Error ? cause.message : "تعذر تنفيذ الأمر بعد الإشعار"),
+      );
+    });
+    const response = Notifications.addNotificationResponseReceivedListener(() => {
+      void processPendingSupabaseCommands(deviceId).catch((cause) =>
+        setError(cause instanceof Error ? cause.message : "تعذر تنفيذ الأمر بعد فتح الإشعار"),
+      );
+    });
+    return () => {
+      received.remove();
+      response.remove();
+    };
+  }, [deviceId]);
 
   const submitAuth = async () => {
     setBusy(true);
@@ -217,6 +236,7 @@ export default function RemoteScreen() {
             <ErrorMessage message={error} />
             {message ? <InfoMessage message={message} /> : null}
             <SecondaryButton label="تحديث الآن" onPress={() => deviceId ? void updateCurrentDeviceHeartbeat(deviceId).then(() => processPendingSupabaseCommands(deviceId)).then(() => setLastSync(new Date())).catch(cause => setError(cause instanceof Error ? cause.message : "فشل التحديث")) : undefined} disabled={!deviceId || busy} />
+            <SecondaryButton label="تفعيل إشعارات الأوامر (FCM)" onPress={() => deviceId ? void enableRemotePushNotifications(deviceId).then(() => setMessage("تم حفظ رمز إشعارات هذا الهاتف.")).catch(cause => setError(cause instanceof Error ? cause.message : "تعذر تفعيل الإشعارات")) : undefined} disabled={!deviceId || busy} />
             <SecondaryButton label="تسجيل الخروج" onPress={() => void signOut()} disabled={busy} />
           </Card>
           <Card>
