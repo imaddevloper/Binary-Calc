@@ -61,7 +61,7 @@ final class TermuxBootstrapInstaller {
             && bash.isFile() && bash.canExecute()
             && apt.isFile() && apt.canExecute()
             && dpkg.isFile() && dpkg.canExecute()
-            && pkg.isFile() && pkg.canRead()
+            && pkg.isFile() && pkg.canExecute()
             && termuxExec.isFile() && termuxExec.canRead()
             && secondStageLock.isFile();
     }
