@@ -14,6 +14,12 @@ on:
       - "src/i18n/**"
       - "package.json"
       - "package-lock.json"
+      - "scripts/**"
+      - "LICENSE"
+      - "LICENSES/**"
+      - "NOTICE"
+      - "docs/architecture/**"
+      - "docs/third-party/**"
 
 permissions:
   contents: read
