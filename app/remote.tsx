@@ -203,7 +203,7 @@ export default function RemoteScreen() {
           </Card>
           <Card>
             <AppText variant="subheading">قيود الاتصال في الخلفية</AppText>
-            <AppText variant="body" color="secondary">الأوامر تُعالج عندما يكون التطبيق نشطاً حالياً. FCM وخدمة الخلفية ما زالا في مرحلة الدمج؛ الهاتف المطفي أو التطبيق الذي أُجبر على الإيقاف لا يمكنه استقبال أمر.</AppText>
+            <AppText variant="body" color="secondary">الأوامر تُعالج تلقائياً أثناء تشغيل التطبيق عبر Realtime والفحص الدوري. إشعارات FCM تحتاج إعداد سر Firebase في Supabase، وقد يتأخر التنفيذ بالخلفية. الهاتف المطفي أو التطبيق الذي أُجبر على الإيقاف لا يمكنه استقبال أمر.</AppText>
           </Card>
         </>
       )}
