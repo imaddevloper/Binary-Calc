@@ -71,7 +71,7 @@ jobs:
           mkdir -p ../termux-bootstrap-artifacts
           cp "bootstrap-${{ matrix.arch }}.zip" ../termux-bootstrap-artifacts/
           bash ../scripts/generate-termux-bootstrap-notices.sh "$PWD" "${{ matrix.arch }}" "../termux-bootstrap-artifacts/termux-bootstrap-packages-${{ matrix.arch }}.csv"
-          git -C .. rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit.txt
+          git rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit.txt
 
       - name: Upload custom bootstrap
         uses: actions/upload-artifact@v4
