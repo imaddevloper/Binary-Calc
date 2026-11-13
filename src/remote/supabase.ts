@@ -11,20 +11,20 @@ if (!supabaseUrl || !supabasePublishableKey) {
 }
 
 const secureStorage = {
-  getItem: (key) => SecureStore.getItemAsync(key),
-  setItem: (key, value) => SecureStore.setItemAsync(key, value),
-  removeItem: (key) => SecureStore.deleteItemAsync(key),
+  getItem: (key: string) => SecureStore.getItemAsync(key),
+  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
+  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
 const browserStorage = {
-  getItem: async (key) => {
+  getItem: async (key: string) => {
     if (typeof window === "undefined") return null;
     return window.localStorage.getItem(key);
   },
-  setItem: async (key, value) => {
+  setItem: async (key: string, value: string) => {
     if (typeof window !== "undefined") window.localStorage.setItem(key, value);
   },
-  removeItem: async (key) => {
+  removeItem: async (key: string) => {
     if (typeof window !== "undefined") window.localStorage.removeItem(key);
   },
 };
