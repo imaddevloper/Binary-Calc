@@ -1,7 +1,7 @@
 import "react-native-url-polyfill/auto";
 import { AppState, Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import { createClient, type SupportedStorage } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -10,13 +10,13 @@ if (!supabaseUrl || !supabasePublishableKey) {
   console.warn("[Binary-Calc] Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
 }
 
-const secureStorage: SupportedStorage = {
+const secureStorage = {
   getItem: (key) => SecureStore.getItemAsync(key),
   setItem: (key, value) => SecureStore.setItemAsync(key, value),
   removeItem: (key) => SecureStore.deleteItemAsync(key),
 };
 
-const browserStorage: SupportedStorage = {
+const browserStorage = {
   getItem: async (key) => {
     if (typeof window === "undefined") return null;
     return window.localStorage.getItem(key);
