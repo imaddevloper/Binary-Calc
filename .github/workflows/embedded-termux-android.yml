@@ -73,7 +73,25 @@ jobs:
           # The container is fresh, so no force-clean is needed. The pinned upstream
           # build-bootstraps.sh currently references an unset *_FOR_ARCH variable
           # when -f is passed, which expands to a dangerous root glob.
-          ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}"
+          # Retry the bootstrap build when an upstream source host temporarily times out.
+          # Keep retries inside the same runner so already-built packages remain cached.
+          build_succeeded=0
+          for attempt in 1 2 3; do
+            echo "Bootstrap build attempt ${attempt}/3 for ${{ matrix.arch }}"
+            if ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}"; then
+              build_succeeded=1
+              break
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              delay=$((attempt * 30))
+              echo "Bootstrap build failed; retrying in ${delay}s (runner cache will be retained)."
+              sleep "${delay}"
+            fi
+          done
+          if [ "${build_succeeded}" -ne 1 ]; then
+            echo "::error::Bootstrap build failed after 3 attempts for ${{ matrix.arch }}"
+            exit 1
+          fi
           test -s "bootstrap-${{ matrix.arch }}.zip"
           sha256sum "bootstrap-${{ matrix.arch }}.zip"
           mkdir -p ../termux-bootstrap-artifacts
