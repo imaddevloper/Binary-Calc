@@ -267,6 +267,24 @@ jobs:
         working-directory: android
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
+      - name: Verify APK identity, target SDK and embedded bootstrap assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          sdk_root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          aapt="$(find "$sdk_root/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt"
+          "$aapt" dump badging "$apk" > apk-badging.txt
+          grep -Fq "package: name='com.binarycalculator.app'" apk-badging.txt
+          grep -Fq "targetSdkVersion:'36'" apk-badging.txt
+          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-aarch64.zip'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-arm.zip'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-aarch64.zip.sha256'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-arm.zip.sha256'
+          echo "APK identity, API 36 target and both embedded ARM bootstrap assets verified."
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
