@@ -178,6 +178,27 @@ jobs:
             exit 1
           fi
           test -s "bootstrap-${{ matrix.arch }}.zip"
+          archive="bootstrap-${{ matrix.arch }}.zip"
+          unzip -Z1 "$archive" > bootstrap-file-list.txt
+          required_runtime_files=(
+            bin/bash
+            bin/apt
+            bin/dpkg
+            bin/pkg
+            lib/libtermux-exec-direct-ld-preload.so
+            lib/libtermux-exec-linker-ld-preload.so
+            lib/libtermux-exec-ld-preload.so
+            etc/termux/termux-bootstrap/second-stage/termux-bootstrap-second-stage.sh
+            etc/profile.d/01-termux-bootstrap-second-stage-fallback.sh
+            SYMLINKS.txt
+          )
+          for required_file in "${required_runtime_files[@]}"; do
+            if ! grep -Fxq "$required_file" bootstrap-file-list.txt; then
+              echo "::error::Bootstrap archive is missing required runtime entry: $required_file"
+              exit 1
+            fi
+          done
+          echo "Verified apt bootstrap payload, second-stage installer and both termux-exec linker variants."
           sha256sum "bootstrap-${{ matrix.arch }}.zip"
           mkdir -p ../termux-bootstrap-artifacts
           cp "bootstrap-${{ matrix.arch }}.zip" ../termux-bootstrap-artifacts/
