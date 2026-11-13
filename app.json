@@ -64,7 +64,8 @@
           "configureAndroidBackup": true
         }
       ],
-      "expo-file-system"
+      "expo-file-system",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true
