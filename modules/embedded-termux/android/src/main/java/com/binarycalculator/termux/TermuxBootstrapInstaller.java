@@ -58,7 +58,11 @@ final class TermuxBootstrapInstaller {
         File prefix = getPrefix(context);
 
         deleteRecursively(staging);
-        deleteRecursively(prefix);
+        if (prefix.exists() || isSymbolicLink(prefix)) {
+            throw new IllegalStateException(
+                "An existing Termux prefix was found but failed validation. It was left untouched to protect installed packages and user files."
+            );
+        }
         if (!staging.mkdirs() && !staging.isDirectory()) {
             throw new IllegalStateException("Could not create the Termux bootstrap staging directory.");
         }
