@@ -5,14 +5,6 @@ const {
   withSettingsGradle,
 } = require('expo/config-plugins');
 
-const TERMUX_MODULE = 'embedded-termux';
-const TERMUX_DEPENDENCY = "implementation 'com.termux.termux-app:terminal-view:8629e632fc'";
-
-function addOnce(source, marker, insertion) {
-  if (source.includes(marker)) return source;
-  return insertion(source);
-}
-
 const withEmbeddedTermux = (config) => {
   config = withProjectBuildGradle(config, (mod) => {
     let contents = mod.modResults.contents;
