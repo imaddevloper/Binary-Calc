@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
+import * as Notifications from "expo-notifications";
 import { supabase } from "./supabase";
 import { listFolderGrants } from "./storage";
 
@@ -140,4 +141,31 @@ export async function syncFolderGrantMetadata(deviceId: string, ownerId?: string
 
 export async function getRegisteredDeviceId(): Promise<string | null> {
   return SecureStore.getItemAsync(DEVICE_ID_KEY);
+}
+
+/** Opt-in to native push notifications and save the device's FCM token privately. */
+export async function enableRemotePushNotifications(deviceId: string): Promise<void> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error("supabase_auth_required");
+
+  let permission = await Notifications.getPermissionsAsync();
+  if (permission.status !== "granted") {
+    permission = await Notifications.requestPermissionsAsync();
+  }
+  if (permission.status !== "granted") throw new Error("notification_permission_denied");
+
+  const nativeToken = await Notifications.getDevicePushTokenAsync();
+  const pushToken = typeof nativeToken.data === "string"
+    ? nativeToken.data
+    : JSON.stringify(nativeToken.data);
+
+  if (!pushToken || pushToken.length > 4096) throw new Error("invalid_fcm_token");
+
+  const { error } = await supabase
+    .from("remote_devices")
+    .update({ push_token: pushToken, updated_at: new Date().toISOString() })
+    .eq("id", deviceId)
+    .eq("owner_id", user.id);
+
+  if (error) throw new Error(error.message);
 }
