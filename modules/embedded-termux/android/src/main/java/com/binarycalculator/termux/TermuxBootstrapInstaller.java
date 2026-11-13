@@ -2,6 +2,7 @@ package com.binarycalculator.termux;
 
 import android.content.Context;
 import android.os.Build;
+import android.os.UserHandle;
 import android.system.Os;
 import android.system.OsConstants;
 
@@ -23,6 +24,7 @@ final class TermuxBootstrapInstaller {
     private static final String STAGING_NAME = "usr-staging";
     private static final String SYMLINK_SEPARATOR = "←";
     private static final String INSTALL_MARKER = ".binarycalc-termux-managed";
+    private static final String INSTALLING_MARKER = ".binarycalc-termux-installing";
 
     private TermuxBootstrapInstaller() {}
 
@@ -45,14 +47,23 @@ final class TermuxBootstrapInstaller {
     }
 
     static boolean isInstalled(Context context) {
-        File bash = new File(getPrefix(context), "bin/bash");
-        File apt = new File(getPrefix(context), "bin/apt");
-        File termuxExec = new File(getPrefix(context), "lib/libtermux-exec.so");
-        File marker = new File(getPrefix(context), INSTALL_MARKER);
-        return marker.isFile()
+        File prefix = getPrefix(context);
+        File bash = new File(prefix, "bin/bash");
+        File apt = new File(prefix, "bin/apt");
+        File dpkg = new File(prefix, "bin/dpkg");
+        File pkg = new File(prefix, "bin/pkg");
+        File termuxExec = new File(prefix, "lib/libtermux-exec-ld-preload.so");
+        File marker = new File(prefix, INSTALL_MARKER);
+        File installing = new File(prefix, INSTALLING_MARKER);
+        File secondStageLock = new File(prefix,
+            "etc/termux/termux-bootstrap/second-stage/termux-bootstrap-second-stage.sh.lock");
+        return marker.isFile() && !installing.exists()
             && bash.isFile() && bash.canExecute()
             && apt.isFile() && apt.canExecute()
-            && termuxExec.isFile() && termuxExec.canRead();
+            && dpkg.isFile() && dpkg.canExecute()
+            && pkg.isFile() && pkg.canRead()
+            && termuxExec.isFile() && termuxExec.canRead()
+            && secondStageLock.isFile();
     }
 
     static synchronized void install(Context context) throws Exception {
@@ -68,12 +79,13 @@ final class TermuxBootstrapInstaller {
         deleteRecursively(staging);
         if (prefix.exists() || isSymbolicLink(prefix)) {
             File marker = new File(prefix, INSTALL_MARKER);
-            if (prefix.isDirectory() && marker.isFile()) {
-                // Recover an install interrupted after atomic activation.
+            File installing = new File(prefix, INSTALLING_MARKER);
+            if (prefix.isDirectory() && marker.isFile() && installing.isFile()) {
+                // Only an interrupted first-run installation is safe to remove.
                 deleteRecursively(prefix);
             } else {
                 throw new IllegalStateException(
-                    "An existing Termux prefix was found but failed validation. It was left untouched to protect user files."
+                    "An existing Termux prefix was found but is incomplete or damaged. It was left untouched to protect user files."
                 );
             }
         }
@@ -169,6 +181,11 @@ final class TermuxBootstrapInstaller {
                 output.write("Managed by Binary-Calc embedded Termux installer.\n".getBytes(StandardCharsets.UTF_8));
             }
             Os.chmod(marker.getAbsolutePath(), 0600);
+            File installingMarker = new File(staging, INSTALLING_MARKER);
+            try (FileOutputStream output = new FileOutputStream(installingMarker)) {
+                output.write("First-run installation in progress.\n".getBytes(StandardCharsets.UTF_8));
+            }
+            Os.chmod(installingMarker.getAbsolutePath(), 0600);
             if (!home.isDirectory() && !home.mkdirs()) throw new IllegalStateException("Could not create Termux HOME.");
             if (!tmp.isDirectory() && !tmp.mkdirs()) throw new IllegalStateException("Could not create Termux TMPDIR.");
             Os.chmod(home.getAbsolutePath(), 0700);
@@ -178,8 +195,14 @@ final class TermuxBootstrapInstaller {
                 throw new IllegalStateException("Could not atomically activate the Termux bootstrap.");
             }
             prefixActivated = true;
+            runBootstrapSecondStage(context, files, prefix, arch);
+            runBootstrapSmokeTest(context, files, prefix, arch);
+            File completedInstallMarker = new File(prefix, INSTALLING_MARKER);
+            if (!completedInstallMarker.delete()) {
+                throw new IllegalStateException("Could not finalize the Termux bootstrap installation state.");
+            }
             if (!isInstalled(context)) {
-                throw new IllegalStateException("Termux bootstrap was extracted but bash/apt validation failed.");
+                throw new IllegalStateException("Termux bootstrap second-stage or runtime validation did not complete.");
             }
         } catch (Exception error) {
             deleteRecursively(staging);
@@ -188,6 +211,137 @@ final class TermuxBootstrapInstaller {
             if (prefixActivated) deleteRecursively(prefix);
             throw error;
         }
+    }
+
+
+    private static void runBootstrapSecondStage(Context context, File files, File prefix, String arch) throws Exception {
+        File secondStage = new File(prefix,
+            "etc/termux/termux-bootstrap/second-stage/termux-bootstrap-second-stage.sh");
+        File directPreload = new File(prefix, "lib/libtermux-exec-direct-ld-preload.so");
+        if (!secondStage.isFile()) {
+            throw new IllegalStateException("The Termux bootstrap second-stage script is missing.");
+        }
+        if (!directPreload.isFile()) {
+            throw new IllegalStateException("The Termux exec bootstrap library is missing.");
+        }
+        runBootstrapCommand(context, files, prefix, arch, directPreload, secondStage.getAbsolutePath());
+    }
+
+    private static void runBootstrapSmokeTest(Context context, File files, File prefix, String arch) throws Exception {
+        File primaryPreload = new File(prefix, "lib/libtermux-exec-ld-preload.so");
+        if (!primaryPreload.isFile()) {
+            throw new IllegalStateException("Termux did not configure its primary exec library during bootstrap.");
+        }
+        String script = "set -eu; "
+            + "test -x \"$PREFIX/bin/bash\"; "
+            + "test -x \"$PREFIX/bin/apt\"; "
+            + "test -x \"$PREFIX/bin/dpkg\"; "
+            + "test -x \"$PREFIX/bin/pkg\"; "
+            + "id -u >/dev/null; uname -m >/dev/null; "
+            + "apt --version >/dev/null; dpkg --version >/dev/null; "
+            + "printf 'BINARYCALC_TERMUX_BOOTSTRAP_SMOKE_OK\\n'";
+        String output = runBootstrapCommand(context, files, prefix, arch, primaryPreload, "-lc", script);
+        if (!output.contains("BINARYCALC_TERMUX_BOOTSTRAP_SMOKE_OK")) {
+            throw new IllegalStateException("Termux runtime smoke test did not produce its success marker. Output: " + output);
+        }
+    }
+
+    private static String runBootstrapCommand(Context context, File files, File prefix, String arch,
+                                              File preloadLibrary, String... shellArguments) throws Exception {
+        File home = new File(files, "home");
+        File bash = new File(prefix, "bin/bash");
+        File linker = new File("/system/bin/" + ("aarch64".equals(arch) ? "linker64" : "linker"));
+        boolean useSystemLinker = Build.VERSION.SDK_INT >= 29;
+        if (useSystemLinker && !linker.canExecute()) {
+            throw new IllegalStateException("Android system linker is unavailable: " + linker.getAbsolutePath());
+        }
+        if (!bash.canExecute() || !preloadLibrary.isFile()) {
+            throw new IllegalStateException("Termux Bash or its exec compatibility library is missing.");
+        }
+
+        List<String> command = new ArrayList<>();
+        command.add(useSystemLinker ? linker.getAbsolutePath() : bash.getAbsolutePath());
+        if (useSystemLinker) command.add(bash.getAbsolutePath());
+        for (String argument : shellArguments) command.add(argument);
+
+        ProcessBuilder builder = new ProcessBuilder(command);
+        builder.directory(home);
+        builder.redirectErrorStream(true);
+        java.util.Map<String, String> environment = builder.environment();
+
+        String uid = String.valueOf(android.os.Process.myUid());
+        String userId = String.valueOf(UserHandle.myUserId());
+        String prefixPath = prefix.getAbsolutePath();
+        String homePath = home.getAbsolutePath();
+        String filesPath = files.getAbsolutePath();
+        String dataPath = files.getParentFile() == null ? filesPath : files.getParentFile().getAbsolutePath();
+        android.content.pm.ApplicationInfo appInfo = context.getApplicationInfo();
+
+        environment.put("HOME", homePath);
+        environment.put("PREFIX", prefixPath);
+        environment.put("TERMUX_PREFIX", prefixPath);
+        environment.put("PATH", prefixPath + "/bin:/system/bin");
+        environment.put("SHELL", bash.getAbsolutePath());
+        environment.put("TMPDIR", prefixPath + "/tmp");
+        environment.put("LD_PRELOAD", preloadLibrary.getAbsolutePath());
+        environment.remove("LD_LIBRARY_PATH");
+        environment.put("LANG", "en_US.UTF-8");
+        environment.put("TERM", "xterm-256color");
+        environment.put("COLORTERM", "truecolor");
+        environment.put("TERMUX_VERSION", "0.118.0");
+        environment.put("TERMUX_PACKAGE_MANAGER", "apt");
+        environment.put("TERMUX_PACKAGE_ARCH", arch);
+        environment.put("TERMUX_APP__PACKAGE_NAME", context.getPackageName());
+        environment.put("TERMUX_APP__VERSION_NAME", "0.118.0");
+        environment.put("TERMUX_APP__VERSION_CODE", "118");
+        environment.put("TERMUX_APP__PID", String.valueOf(android.os.Process.myPid()));
+        environment.put("TERMUX_APP__UID", uid);
+        environment.put("TERMUX_APP__IS_DEBUGGABLE_BUILD",
+            String.valueOf((appInfo.flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0));
+        environment.put("TERMUX_APP__APK_PATH", appInfo.sourceDir);
+        environment.put("TERMUX_APP__IS_INSTALLED_ON_EXTERNAL_STORAGE", "false");
+        environment.put("TERMUX_APP__USER_ID", userId);
+        environment.put("TERMUX_APP__TARGET_SDK", String.valueOf(appInfo.targetSdkVersion));
+        environment.put("TERMUX_APP__PACKAGE_MANAGER", "apt");
+        environment.put("TERMUX_APP__PACKAGE_VARIANT", "apt-android-7");
+        environment.put("TERMUX_APP__FILES_DIR", filesPath);
+        environment.put("TERMUX_APP__DATA_DIR", dataPath);
+        environment.put("TERMUX__ROOTFS", filesPath);
+        environment.put("TERMUX__UID", uid);
+        environment.put("TERMUX__USER_ID", userId);
+        environment.put("TERMUX__HOME", homePath);
+        environment.put("TERMUX__PREFIX", prefixPath);
+        environment.put("ANDROID__BUILD_VERSION_SDK", String.valueOf(Build.VERSION.SDK_INT));
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new java.io.FileInputStream("/proc/self/attr/current"), StandardCharsets.UTF_8))) {
+            String processContext = reader.readLine();
+            if (processContext != null && !processContext.isEmpty()) {
+                environment.put("TERMUX_APP__SE_PROCESS_CONTEXT", processContext);
+            }
+        } catch (Exception ignored) {
+            // termux-exec can read the process context from /proc itself when available.
+        }
+
+        Process process = builder.start();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (InputStream stream = process.getInputStream()) {
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = stream.read(buffer)) != -1) {
+                if (output.size() < 128 * 1024) {
+                    int writable = Math.min(count, 128 * 1024 - output.size());
+                    output.write(buffer, 0, writable);
+                }
+            }
+        }
+        int exitCode = process.waitFor();
+        String log = output.toString(StandardCharsets.UTF_8.name());
+        if (exitCode != 0) {
+            throw new IllegalStateException("Termux bootstrap command failed with exit code "
+                + exitCode + ". Output: " + log);
+        }
+        return log;
     }
 
     private static void verifyAssetChecksum(Context context, String assetName) throws Exception {
