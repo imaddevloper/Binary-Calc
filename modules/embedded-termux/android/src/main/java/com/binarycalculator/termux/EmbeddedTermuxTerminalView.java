@@ -12,6 +12,7 @@ import android.os.Vibrator;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.inputmethod.InputMethodManager;
 
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
@@ -175,7 +176,11 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
     @Override public void logStackTrace(String tag, Exception error) { Log.e(TAG, tag, error); }
 
     @Override public float onScale(float scale) { return scale; }
-    @Override public void onSingleTapUp(MotionEvent event) { requestFocus(); }
+    @Override public void onSingleTapUp(MotionEvent event) {
+        requestFocus();
+        InputMethodManager input = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (input != null) input.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT);
+    }
     @Override public boolean shouldBackButtonBeMappedToEscape() { return false; }
     @Override public boolean shouldEnforceCharBasedInput() { return true; }
     @Override public boolean shouldUseCtrlSpaceWorkaround() { return false; }
