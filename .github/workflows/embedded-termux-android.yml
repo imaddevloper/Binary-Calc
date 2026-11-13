@@ -67,23 +67,6 @@ jobs:
           echo "Configured Termux namespace: com.binarycalculator.termux"
           echo "Configured private prefix: /data/data/com.binarycalculator.app/files/usr"
 
-      - name: Reconcile bootstrap package names with the pinned Termux source
-        working-directory: termux-packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          # This pinned upstream revision renamed the bootstrap's bzip2 source
-          # package to libbz2; libbz2 still installs the bzip2/bzcat tools.
-          if [ ! -f packages/bzip2/build.sh ] && [ -f packages/libbz2/build.sh ]; then
-            sed -i 's/PACKAGES+=("bzip2")/PACKAGES+=("libbz2")/' scripts/build-bootstraps.sh
-          fi
-          grep -Fq 'PACKAGES+=("libbz2")' scripts/build-bootstraps.sh
-          if grep -Fq 'PACKAGES+=("bzip2")' scripts/build-bootstraps.sh; then
-            echo "::error::Obsolete bzip2 package reference remains in bootstrap list."
-            exit 1
-          fi
-          echo "Verified bootstrap compression package against pinned Termux sources."
-
       - name: Reconcile bootstrap package names with pinned upstream sources
         working-directory: termux-packages
         shell: bash
