@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import { executeStorageCommand } from "./storage";
 import type { StorageCommand } from "./storage";
+import { downloadSharedFileToGrant, uploadSelectedFileFromGrant } from "./supabase-transfers";
 
 type SupabaseCommand = {
   id: string;
@@ -116,8 +117,10 @@ export async function processPendingSupabaseCommands(deviceId: string): Promise<
           execution: "foreground",
           completedAt: new Date().toISOString(),
         };
-      } else if (item.command_type === "download_shared_file" || item.command_type === "upload_selected_file") {
-        throw new Error("file_transfer_worker_not_implemented");
+      } else if (item.command_type === "download_shared_file") {
+        result = await downloadSharedFileToGrant(deviceId, item.payload);
+      } else if (item.command_type === "upload_selected_file") {
+        result = await uploadSelectedFileFromGrant(deviceId, item.payload);
       } else {
         const storageCommand = toStorageCommand(item);
         if (!storageCommand) throw new Error("unsupported_command_type");
