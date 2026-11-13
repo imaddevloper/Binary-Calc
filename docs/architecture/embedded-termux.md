@@ -1,6 +1,6 @@
 # Embedded Termux Engine — Architecture and Integration Plan
 
-Status: planning / repository reconnaissance only. No Termux source, native code, dependencies, Android permissions, or app behavior have been changed by this document.
+Status: implementation in progress on `feature/embedded-termux-engine`. Native integration, the Terminal UI, pinned upstream dependencies, app-specific bootstrap generation and license notices are now present on the branch. Android CI and physical-device validation are still required; this is not production-ready.
 
 Target branch: `feature/embedded-termux-engine`
 Base: `feature/supabase-remote-clean`
@@ -33,7 +33,7 @@ The upstream library documentation permits third-party apps to use the published
 
 This is an in-progress integration. It has not yet passed Android compilation or a real-device shell test. Do not describe it as production-ready until CI and device validation succeed.
 
-## Proposed implementation
+## Remaining implementation and validation work
 
 1. **Pin and audit upstream sources**
    - Pin a specific stable upstream Termux release/commit; do not track `master` or floating Maven versions.
