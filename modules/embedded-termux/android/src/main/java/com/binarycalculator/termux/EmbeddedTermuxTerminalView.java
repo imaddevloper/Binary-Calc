@@ -73,14 +73,13 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
             String architecture = TermuxBootstrapInstaller.getSupportedArchitecture();
             String uid = String.valueOf(Process.myUid());
             String userId = String.valueOf(UserHandle.myUserId());
-            String termuxExec = new File(prefix, "lib/libtermux-exec.so").getAbsolutePath();
+            String termuxExec = new File(prefix, "lib/libtermux-exec-ld-preload.so").getAbsolutePath();
             String[] env = new String[] {
                 "HOME=" + home.getAbsolutePath(),
                 "PREFIX=" + prefix.getAbsolutePath(),
                 "PATH=" + new File(prefix, "bin").getAbsolutePath() + ":/system/bin:/system/xbin",
                 "SHELL=" + bash.getAbsolutePath(),
                 "TMPDIR=" + new File(prefix, "tmp").getAbsolutePath(),
-                "LD_LIBRARY_PATH=" + new File(prefix, "lib").getAbsolutePath(),
                 "LD_PRELOAD=" + termuxExec,
                 "LANG=en_US.UTF-8",
                 "TERM=xterm-256color",
@@ -98,18 +97,26 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
                 "TERMUX_APP__IS_INSTALLED_ON_EXTERNAL_STORAGE=false",
                 "TERMUX_APP__USER_ID=" + userId,
                 "TERMUX_APP__TARGET_SDK=" + getContext().getApplicationInfo().targetSdkVersion,
+                "TERMUX_APP__DATA_DIR=" + files.getParentFile().getAbsolutePath(),
                 "TERMUX_APP__PACKAGE_MANAGER=apt",
                 "TERMUX_APP__PACKAGE_VARIANT=apt-android-7",
                 "TERMUX_APP__FILES_DIR=" + files.getAbsolutePath(),
                 "TERMUX__UID=" + uid,
                 "TERMUX__USER_ID=" + userId,
                 "TERMUX__HOME=" + home.getAbsolutePath(),
-                "TERMUX__PREFIX=" + prefix.getAbsolutePath()
+                "TERMUX__PREFIX=" + prefix.getAbsolutePath(),
+                "ANDROID__BUILD_VERSION_SDK=" + Build.VERSION.SDK_INT
             };
+            boolean useSystemLinker = Build.VERSION.SDK_INT >= 29;
+            String linkerPath = "/system/bin/" + ("aarch64".equals(architecture) ? "linker64" : "linker");
+            String executable = useSystemLinker ? linkerPath : bash.getAbsolutePath();
+            String[] arguments = useSystemLinker
+                ? new String[] { bash.getAbsolutePath(), "-l" }
+                : new String[] { "-l" };
             session = new TerminalSession(
-                bash.getAbsolutePath(),
+                executable,
                 home.getAbsolutePath(),
-                new String[] { "bash", "-l" },
+                arguments,
                 env,
                 2000,
                 this
