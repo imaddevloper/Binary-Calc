@@ -31,11 +31,11 @@ npx supabase db push
 
 Or paste the migration file into the Supabase SQL Editor:
 
-`migrations/20261113085823_binary_calc_remote_access_foundation.sql` and `migrations/20261113085845_index_remote_access_foreign_keys.sql`
+`migrations/20261113085823_binary_calc_remote_access_foundation.sql`, `migrations/20261113085845_index_remote_access_foreign_keys.sql`, and `migrations/20261113091321_remote_folder_client_grant_id.sql`
 
 The migration creates:
 - `remote_devices`
-- `remote_folder_grants`
+- `remote_folder_grants` (stores only folder label, opaque client grant ID, and one-way fingerprint; no raw SAF URI)
 - `remote_commands`
 - `remote_file_transfers`
 - Private Storage bucket `binary-calc-device-files` (50 MiB per object)
@@ -81,4 +81,4 @@ Python is not required inside the Android application. If useful, a later option
 
 ## Status
 
-Current progress: Supabase client/auth lifecycle, per-installation device registration, privacy-preserving folder-grant metadata sync, and a foreground command-queue processor have been added on the feature branch. The Android sign-in/registration screen still needs to be wired into the app navigation; binary file transfer execution, FCM delivery, expiry cleanup, CI validation, and real-device end-to-end tests are still pending. The standalone web dashboard project is supplied separately and also requires app-side device registration/command processing to operate end-to-end. Do not merge into `main` until the remaining stages and Android device tests pass.
+Current progress: Supabase client/auth lifecycle, the Android remote-screen sign-in/sign-up flow, per-installation device registration, privacy-preserving folder-grant metadata sync, and a foreground command-queue processor are present on the feature branch. The standalone Arabic RTL web dashboard project is supplied separately. Binary file transfer execution on Android, FCM delivery, expiry cleanup, full CI validation, and real-device end-to-end tests remain pending. Do not merge into `main` until the remaining stages and Android device tests pass.
