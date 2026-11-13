@@ -21,6 +21,18 @@ Termux is not a single embeddable library. Upstream separates:
 
 The upstream library documentation permits third-party apps to use the published terminal libraries, but those libraries alone do not provide a complete shell environment or package manager. The standalone-app `RUN_COMMAND` integration is explicitly not suitable for the requirement because it requires Termux to be installed separately.
 
+## Current implementation on feature branch
+
+- Added an Expo config plugin at `plugins/withEmbeddedTermux.js` to register a local Android library module and the pinned Termux terminal library from JitPack.
+- Added a native Android bridge and React Native view manager under `modules/embedded-termux/android`.
+- The view hosts upstream `TerminalView` / `TerminalSession`; it does not emulate a shell in JavaScript.
+- Added a bootstrap installer that validates extracted paths, stages files under the app-private Termux prefix, restores upstream symlinks, and activates the prefix atomically.
+- Added an Arabic/English Terminal screen and a Home shortcut.
+- Added `.github/workflows/embedded-termux-android.yml` to build app-specific Android 10+ bootstrap archives from pinned Termux packages sources, then prebuild Expo and assemble a debug APK.
+- The bootstrap assets are generated in CI and are not committed as binary blobs.
+
+This is an in-progress integration. It has not yet passed Android compilation or a real-device shell test. Do not describe it as production-ready until CI and device validation succeed.
+
 ## Proposed implementation
 
 1. **Pin and audit upstream sources**
