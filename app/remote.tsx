@@ -10,6 +10,7 @@ import { ErrorMessage, InfoMessage } from "../src/components/Feedback";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { spacing } from "../src/theme/spacing";
 import { supabase } from "../src/remote/supabase";
+import { processPendingSupabaseCommands } from "../src/remote/supabase-commands";
 import { registerCurrentDevice, updateCurrentDeviceHeartbeat, syncFolderGrantMetadata, enableRemotePushNotifications } from "../src/remote/supabase-device";
 import { addFolderGrant, listFolderGrants, removeFolderGrant } from "../src/remote/storage";
 import type { FolderGrantSummary } from "../src/remote/storage";
