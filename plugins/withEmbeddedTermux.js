@@ -27,7 +27,7 @@ const withEmbeddedTermux = (config) => {
     // which is intentionally not installed in this Expo project.
     if (!contents.includes('expoAutolinking.rnConfigCommand')) {
       contents = contents.replace(
-        /ex\\.autolinkLibrariesFromCommand\\(\\)/g,
+        /ex\.autolinkLibrariesFromCommand\(\)/g,
         'ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)'
       );
     }
