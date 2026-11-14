@@ -20,7 +20,10 @@ android {
 
 dependencies {
     implementation 'com.facebook.react:react-android'
-    implementation 'com.termux.termux-app:terminal-view:8629e632fc'
+    // JitPack multi-module coordinates use com.github.<owner>.<repo>:<module>:<commit>.
+    // The previous group (com.termux.termux-app) generated an invalid Maven path
+    // and could not resolve terminal-emulator's transitive AAR.
+    implementation 'com.github.termux.termux-app:terminal-view:8629e632fc'
     // Required by Termux library consumers to avoid duplicate Guava ListenableFuture classes.
     implementation 'com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava'
 }
