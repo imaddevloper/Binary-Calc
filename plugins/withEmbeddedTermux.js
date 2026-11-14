@@ -25,12 +25,10 @@ const withEmbeddedTermux = (config) => {
     // Expo SDK 52+ owns React Native module autolinking by default. The
     // no-argument React Native Gradle call invokes the Community CLI instead,
     // which is intentionally not installed in this Expo project.
-    if (!contents.includes('expoAutolinking.rnConfigCommand')) {
-      contents = contents.replace(
-        /ex\.autolinkLibrariesFromCommand\(\)/g,
-        'ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)'
-      );
-    }
+    contents = contents.replace(
+      /ex\.autolinkLibrariesFromCommand\(\)/g,
+      'ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)'
+    );
     if (!contents.includes('expoAutolinking.rnConfigCommand')) {
       throw new Error('Embedded Termux: Expo Autolinking command is missing from android/settings.gradle; refusing to use the React Native Community CLI fallback.');
     }
