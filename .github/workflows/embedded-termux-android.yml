@@ -138,11 +138,11 @@ jobs:
           # root by design. Probe the explicitly allowed output/ directory.
           timeout 10m ./scripts/run-docker.sh bash -lc '
             set -euo pipefail
-            printf "Container builder identity: %s:%s\\n" "$(id -u)" "$(id -g)"
-            printf "Workspace root owner: %s:%s\\n" "$(stat -c %u:%g .)"
-            printf "Allowed output directory owner: %s:%s\\n" "$(stat -c %u:%g output)"
+            printf "Container builder identity: %s:%s\n" "$(id -u)" "$(id -g)"
+            printf "Workspace root owner: %s:%s\n" "$(stat -c %u:%g .)"
+            printf "Allowed output directory owner: %s:%s\n" "$(stat -c %u:%g output)"
             test "$(id -u)" = "$(stat -c %u output)"
-            printf "docker-write-ok\\n" > "output/.uid-gid-write-probe-${{ matrix.arch }}"
+            printf "docker-write-ok\n" > "output/.uid-gid-write-probe-${{ matrix.arch }}"
             test -s "output/.uid-gid-write-probe-${{ matrix.arch }}"
           '
           test -s "$probe"
@@ -158,33 +158,33 @@ jobs:
           set -euo pipefail
           # The pinned apt recipe downloads this exact source archive. Termux's
           # source downloader reuses a checksum-matching file in
-          # \$TERMUX_TOPDIR/apt/cache, so prefetch it inside the same persistent
+          # $TERMUX_TOPDIR/apt/cache, so prefetch it inside the same persistent
           # package-builder container before starting the Bootstrap build.
           ./scripts/run-docker.sh bash -lc '
             set -euo pipefail
-            cache="\$HOME/.termux-build/apt/cache"
-            archive="\$cache/dash-0.5.13.5.tar.gz"
+            cache="$HOME/.termux-build/apt/cache"
+            archive="$cache/dash-0.5.13.5.tar.gz"
             url="https://git.kernel.org/pub/scm/utils/dash/dash.git/snapshot/dash-0.5.13.5.tar.gz"
             expected="53622e51df0fd7a2950552cfe0da0bee9bfc1510784e752b62eacc49b3776d33"
-            mkdir -p "\$cache"
+            mkdir -p "$cache"
 
-            if [[ -f "\$archive" ]] && printf "%s  %s\\n" "\$expected" "\$archive" | sha256sum --check --status; then
+            if [[ -f "$archive" ]] && printf "%s  %s\n" "$expected" "$archive" | sha256sum --check --status; then
               echo "Using existing checksum-verified dash source cache."
               exit 0
             fi
 
-            rm -f "\$archive"
-            temporary="\$archive.part"
-            trap '\''rm -f "\$temporary"'\'' EXIT
+            rm -f "$archive"
+            temporary="$archive.part"
+            trap '\''rm -f "$temporary"'\'' EXIT
             echo "Prefetching pinned dash source with bounded retries..."
             curl --fail --location --retry 8 --retry-all-errors --retry-delay 10 \\
               --connect-timeout 60 --max-time 900 \\
-              --output "\$temporary" "\$url"
-            printf "%s  %s\\n" "\$expected" "\$temporary" | sha256sum --check
-            mv "\$temporary" "\$archive"
+              --output "$temporary" "$url"
+            printf "%s  %s\n" "$expected" "$temporary" | sha256sum --check
+            mv "$temporary" "$archive"
             trap - EXIT
-            printf "%s  %s\\n" "\$expected" "\$archive" | sha256sum --check
-            echo "Verified dash source cached at: \$archive"
+            printf "%s  %s\n" "$expected" "$archive" | sha256sum --check
+            echo "Verified dash source cached at: $archive"
           '
       - name: Build the official apt-android-7 bootstrap from pinned Termux sources
         working-directory: termux-packages
