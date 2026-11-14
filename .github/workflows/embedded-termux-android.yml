@@ -35,6 +35,8 @@ jobs:
     name: Build Termux Bootstrap (${{ matrix.arch }})
     runs-on: ubuntu-24.04
     timeout-minutes: 360
+    # ARM64 is the required device target. A 32-bit ARM build is best-effort.
+    continue-on-error: ${{ matrix.arch == 'arm' }}
     strategy:
       fail-fast: false
       matrix:
@@ -269,12 +271,22 @@ jobs:
         run: |
           set -euo pipefail
           cd modules/embedded-termux/android/src/main/assets
+          # ARM64 is mandatory. The 32-bit ARM artifact is optional.
+          test -s bootstrap-aarch64.zip
+          test -s bootstrap-aarch64.zip.sha256
           mv bootstrap-aarch64.zip termux-bootstrap-aarch64.zip
-          mv bootstrap-arm.zip termux-bootstrap-arm.zip
           mv bootstrap-aarch64.zip.sha256 termux-bootstrap-aarch64.zip.sha256
-          mv bootstrap-arm.zip.sha256 termux-bootstrap-arm.zip.sha256
           echo "$(cat termux-bootstrap-aarch64.zip.sha256)  termux-bootstrap-aarch64.zip" | sha256sum -c -
-          echo "$(cat termux-bootstrap-arm.zip.sha256)  termux-bootstrap-arm.zip" | sha256sum -c -
+
+          if [[ -s bootstrap-arm.zip && -s bootstrap-arm.zip.sha256 ]]; then
+            mv bootstrap-arm.zip termux-bootstrap-arm.zip
+            mv bootstrap-arm.zip.sha256 termux-bootstrap-arm.zip.sha256
+            echo "$(cat termux-bootstrap-arm.zip.sha256)  termux-bootstrap-arm.zip" | sha256sum -c -
+            echo "arm32-bootstrap=available" > bootstrap-architecture-status.txt
+          else
+            echo "::warning::32-bit ARM Bootstrap was not produced; this APK will be restricted to arm64-v8a."
+            echo "arm32-bootstrap=unavailable" > bootstrap-architecture-status.txt
+          fi
           cp "$GITHUB_WORKSPACE/LICENSE" BinaryCalc-GPL-3.0.txt
           cp "$GITHUB_WORKSPACE/LICENSES/Apache-2.0.txt" Apache-2.0.txt
           cp "$GITHUB_WORKSPACE/NOTICE" NOTICE.txt
@@ -297,6 +309,25 @@ jobs:
       - name: Generate Android native project
         run: npx expo prebuild --platform android --clean --no-install
 
+      - name: Restrict APK ABI when optional 32-bit Bootstrap is unavailable
+        if: hashFiles('modules/embedded-termux/android/src/main/assets/termux-bootstrap-arm.zip') == ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("android/app/build.gradle")
+          source = path.read_text()
+          anchor = "defaultConfig {"
+          if source.count(anchor) != 1:
+              raise SystemExit("Could not identify exactly one defaultConfig block to apply the ARM64-only ABI filter.")
+          if "abiFilters" in source:
+              raise SystemExit("An existing ABI filter is present; refusing to overwrite it.")
+          source = source.replace(anchor, anchor + '\\n        ndk { abiFilters "arm64-v8a" }', 1)
+          path.write_text(source)
+          PY
+          grep -Fq 'abiFilters "arm64-v8a"' android/app/build.gradle
+
       - name: Build debug APK
         working-directory: android
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
@@ -314,10 +345,15 @@ jobs:
           grep -Fq "package: name='com.binarycalculator.app'" apk-badging.txt
           grep -Fq "targetSdkVersion:'36'" apk-badging.txt
           unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-aarch64.zip'
-          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-arm.zip'
           unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-aarch64.zip.sha256'
-          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-arm.zip.sha256'
-          echo "APK identity, API 36 target and both embedded ARM bootstrap assets verified."
+          if [[ -f modules/embedded-termux/android/src/main/assets/termux-bootstrap-arm.zip ]]; then
+            unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-arm.zip'
+            unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-arm.zip.sha256'
+            echo "APK includes ARM64 and optional ARM bootstrap assets."
+          else
+            grep -Fq 'abiFilters "arm64-v8a"' android/app/build.gradle
+            echo "APK is explicitly ARM64-only because the optional ARM bootstrap is unavailable."
+          fi
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
