@@ -310,6 +310,16 @@ jobs:
       - name: Generate Android native project
         run: npx expo prebuild --platform android --clean --no-install
 
+      - name: Validate Expo React Native autolinking configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Generated Android settings.gradle autolinking configuration:"
+          grep -n -E 'expo-autolinking-settings|expoAutolinking|autolinkLibrariesFromCommand' android/settings.gradle
+          grep -Fq 'ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)' android/settings.gradle
+          node --no-warnings --eval "require(require.resolve('expo-modules-autolinking', { paths: [require.resolve('expo/package.json')] }))(process.argv.slice(1))" react-native-config --json --platform android > "$RUNNER_TEMP/react-native-autolinking.json"
+          node -e "const fs=require('fs'); const value=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if (!value || typeof value !== 'object' || !value.dependencies) process.exit(1); console.log('Expo autolinking JSON validated; dependencies:', Object.keys(value.dependencies).length);" "$RUNNER_TEMP/react-native-autolinking.json"
+
       - name: Restrict APK ABI when optional 32-bit Bootstrap is unavailable
         if: hashFiles('modules/embedded-termux/android/src/main/assets/termux-bootstrap-arm.zip') == ''
         shell: bash
