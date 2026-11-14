@@ -36,7 +36,7 @@ const withEmbeddedTermux = (config) => {
     }
 
     if (!contents.includes("project(':embedded-termux')")) {
-      contents += `\\n\\ninclude ':embedded-termux'\\nproject(':embedded-termux').projectDir = new File(rootProject.projectDir, '../modules/embedded-termux/android')\\n`;
+      contents += `\n\ninclude ':embedded-termux'\nproject(':embedded-termux').projectDir = new File(rootProject.projectDir, '../modules/embedded-termux/android')\n`;
     }
     mod.modResults.contents = contents;
     return mod;
