@@ -8,7 +8,7 @@ export type IconName =
   | 'copy' | 'close-circle' | 'chevron-back' | 'chevron-forward' | 'help-circle' | 'sunny' | 'moon'
   | 'language' | 'trash' | 'checkmark-circle' | 'alert-circle' | 'clipboard' | 'refresh' | 'flash'
   | 'flash-off' | 'logo-instagram' | 'bulb' | 'trophy' | 'swap-horizontal' | 'bookmark' | 'shield-checkmark'
-  | 'repeat' | 'create' | 'chevron-down' | 'chevron-up' | 'phone-portrait' | 'arrow-back' | 'arrow-forward';
+  | 'repeat' | 'create' | 'terminal' | 'chevron-down' | 'chevron-up' | 'phone-portrait' | 'arrow-back' | 'arrow-forward';
 
 const OUTLINE: Record<IconName, keyof typeof Ionicons.glyphMap> = {
   home: 'home-outline',
@@ -42,6 +42,7 @@ const OUTLINE: Record<IconName, keyof typeof Ionicons.glyphMap> = {
   'shield-checkmark': 'shield-checkmark-outline',
   repeat: 'repeat-outline',
   create: 'create-outline',
+  terminal: 'code-slash-outline',
   'chevron-down': 'chevron-down',
   'chevron-up': 'chevron-up',
   'phone-portrait': 'phone-portrait-outline',

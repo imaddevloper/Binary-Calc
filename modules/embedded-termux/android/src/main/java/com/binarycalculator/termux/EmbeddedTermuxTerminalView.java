@@ -1,0 +1,222 @@
+package com.binarycalculator.termux;
+
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.graphics.Typeface;
+import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Process;
+import android.os.UserHandle;
+import android.os.Vibrator;
+import android.util.Log;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.inputmethod.InputMethodManager;
+
+import com.termux.terminal.TerminalSession;
+import com.termux.terminal.TerminalSessionClient;
+import com.termux.view.TerminalView;
+import com.termux.view.TerminalViewClient;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+
+final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalSessionClient, TerminalViewClient {
+    private static final String TAG = "BinaryCalcTermux";
+    private TerminalSession session;
+    private boolean sessionStartRequested;
+    private int fontSize = 14;
+
+    EmbeddedTermuxTerminalView(Context context) {
+        super(context, null);
+        setFocusable(true);
+        setFocusableInTouchMode(true);
+        setTextSize(Math.round(fontSize * getResources().getDisplayMetrics().scaledDensity));
+        setTypeface(Typeface.MONOSPACE);
+        setTerminalViewClient(this);
+        setBackgroundColor(0xFF0B0B0F);
+        addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (right > left && bottom > top) startSessionIfReady();
+        });
+    }
+
+    void setFontSize(int size) {
+        fontSize = Math.max(10, Math.min(24, size));
+        setTextSize(Math.round(fontSize * getResources().getDisplayMetrics().scaledDensity));
+    }
+
+    void startSessionIfReady() {
+        if (session != null || sessionStartRequested || getWidth() <= 0 || getHeight() <= 0) return;
+        sessionStartRequested = true;
+        if (!TermuxBootstrapInstaller.isInstalled(getContext())) {
+            sessionStartRequested = false;
+            Log.w(TAG, "Termux bootstrap is not installed yet.");
+            return;
+        }
+
+        try {
+            TerminalSession existingSession = EmbeddedTermuxSessionHolder.getRunning();
+            if (existingSession != null) {
+                session = existingSession;
+                session.updateTerminalSessionClient(this);
+                sessionStartRequested = true;
+                attachSession(existingSession);
+                requestFocus();
+                return;
+            }
+
+            File files = TermuxBootstrapInstaller.getFilesRoot(getContext());
+            File prefix = TermuxBootstrapInstaller.getPrefix(getContext());
+            File home = new File(files, "home");
+            File bash = new File(prefix, "bin/bash");
+            String architecture = TermuxBootstrapInstaller.getSupportedArchitecture();
+            String uid = String.valueOf(Process.myUid());
+            String userId = String.valueOf(UserHandle.myUserId());
+            String termuxExec = new File(prefix, "lib/libtermux-exec-ld-preload.so").getAbsolutePath();
+            String[] env = new String[] {
+                "HOME=" + home.getAbsolutePath(),
+                "PREFIX=" + prefix.getAbsolutePath(),
+                "PATH=" + new File(prefix, "bin").getAbsolutePath() + ":/system/bin:/system/xbin",
+                "SHELL=" + bash.getAbsolutePath(),
+                "TMPDIR=" + new File(prefix, "tmp").getAbsolutePath(),
+                "LD_PRELOAD=" + termuxExec,
+                "LANG=en_US.UTF-8",
+                "TERM=xterm-256color",
+                "COLORTERM=truecolor",
+                "TERMUX_VERSION=0.118.0",
+                "TERMUX_PACKAGE_MANAGER=apt",
+                "TERMUX_PACKAGE_ARCH=" + architecture,
+                "TERMUX_APP__PACKAGE_NAME=" + getContext().getPackageName(),
+                "TERMUX_APP__VERSION_NAME=0.118.0",
+                "TERMUX_APP__VERSION_CODE=118",
+                "TERMUX_APP__PID=" + Process.myPid(),
+                "TERMUX_APP__UID=" + uid,
+                "TERMUX_APP__IS_DEBUGGABLE_BUILD=" + ((getContext().getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0),
+                "TERMUX_APP__APK_PATH=" + getContext().getApplicationInfo().sourceDir,
+                "TERMUX_APP__IS_INSTALLED_ON_EXTERNAL_STORAGE=false",
+                "TERMUX_APP__USER_ID=" + userId,
+                "TERMUX_APP__TARGET_SDK=" + getContext().getApplicationInfo().targetSdkVersion,
+                "TERMUX_APP__DATA_DIR=" + files.getParentFile().getAbsolutePath(),
+                "TERMUX_APP__PACKAGE_MANAGER=apt",
+                "TERMUX_APP__PACKAGE_VARIANT=apt-android-7",
+                "TERMUX_APP__FILES_DIR=" + files.getAbsolutePath(),
+                "TERMUX__UID=" + uid,
+                "TERMUX__USER_ID=" + userId,
+                "TERMUX__HOME=" + home.getAbsolutePath(),
+                "TERMUX__PREFIX=" + prefix.getAbsolutePath(),
+                "TERMUX__SE_PROCESS_CONTEXT=" + readProcessContext(),
+                "TERMUX_APP__SE_PROCESS_CONTEXT=" + readProcessContext(),
+                "ANDROID__BUILD_VERSION_SDK=" + Build.VERSION.SDK_INT
+            };
+            boolean useSystemLinker = Build.VERSION.SDK_INT >= 29;
+            String linkerPath = "/system/bin/" + ("aarch64".equals(architecture) ? "linker64" : "linker");
+            String executable = useSystemLinker ? linkerPath : bash.getAbsolutePath();
+            String[] arguments = useSystemLinker
+                ? new String[] { bash.getAbsolutePath(), "-l" }
+                : new String[] { "-l" };
+            session = new TerminalSession(
+                executable,
+                home.getAbsolutePath(),
+                arguments,
+                env,
+                2000,
+                this
+            );
+            EmbeddedTermuxSessionHolder.set(session);
+            attachSession(session);
+            requestFocus();
+        } catch (Exception error) {
+            sessionStartRequested = false;
+            Log.e(TAG, "Could not start embedded Termux session.", error);
+        }
+    }
+
+    private static String readProcessContext() {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new FileInputStream("/proc/self/attr/current"), StandardCharsets.UTF_8))) {
+            String value = reader.readLine();
+            return value == null ? "" : value.trim();
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    void detachSession() {
+        // Keep the PTY alive while the user navigates between app routes.
+        // The next terminal view reattaches and becomes the session callback client.
+        sessionStartRequested = false;
+    }
+
+    @Override public void onTextChanged(TerminalSession changedSession) { post(this::onScreenUpdated); }
+    @Override public void onTitleChanged(TerminalSession changedSession) { post(this::onScreenUpdated); }
+    @Override public void onSessionFinished(TerminalSession finishedSession) {
+        if (session == finishedSession) {
+            EmbeddedTermuxSessionHolder.clear(session);
+            session = null;
+            sessionStartRequested = false;
+            post(this::invalidate);
+        }
+    }
+
+    @Override public void onCopyTextToClipboard(TerminalSession source, String text) {
+        ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText("Terminal", text));
+    }
+
+    @Override public void onPasteTextFromClipboard(TerminalSession target) {
+        ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        if (target == null || clipboard == null || !clipboard.hasPrimaryClip()) return;
+        ClipData clip = clipboard.getPrimaryClip();
+        if (clip == null || clip.getItemCount() == 0) return;
+        CharSequence value = clip.getItemAt(0).coerceToText(getContext());
+        if (value != null) {
+            byte[] bytes = value.toString().getBytes(StandardCharsets.UTF_8);
+            target.write(bytes, 0, bytes.length);
+        }
+    }
+
+    @Override public void onBell(TerminalSession source) {
+        Vibrator vibrator = (Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
+        if (vibrator != null && vibrator.hasVibrator()) {
+            if (Build.VERSION.SDK_INT >= 26) vibrator.vibrate(VibrationEffect.createOneShot(35, VibrationEffect.DEFAULT_AMPLITUDE));
+            else vibrator.vibrate(35);
+        }
+    }
+    @Override public void onColorsChanged(TerminalSession source) { post(this::invalidate); }
+    @Override public void onTerminalCursorStateChange(boolean state) { post(this::invalidate); }
+    @Override public void setTerminalShellPid(TerminalSession source, int pid) {}
+    @Override public Integer getTerminalCursorStyle() { return null; }
+
+    @Override public void logError(String tag, String message) { Log.e(TAG, tag + ": " + message); }
+    @Override public void logWarn(String tag, String message) { Log.w(TAG, tag + ": " + message); }
+    @Override public void logInfo(String tag, String message) { Log.i(TAG, tag + ": " + message); }
+    @Override public void logDebug(String tag, String message) { Log.d(TAG, tag + ": " + message); }
+    @Override public void logVerbose(String tag, String message) { Log.v(TAG, tag + ": " + message); }
+    @Override public void logStackTraceWithMessage(String tag, String message, Exception error) { Log.e(TAG, tag + ": " + message, error); }
+    @Override public void logStackTrace(String tag, Exception error) { Log.e(TAG, tag, error); }
+
+    @Override public float onScale(float scale) { return scale; }
+    @Override public void onSingleTapUp(MotionEvent event) {
+        requestFocus();
+        InputMethodManager input = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (input != null) input.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT);
+    }
+    @Override public boolean shouldBackButtonBeMappedToEscape() { return false; }
+    @Override public boolean shouldEnforceCharBasedInput() { return true; }
+    @Override public boolean shouldUseCtrlSpaceWorkaround() { return false; }
+    @Override public boolean isTerminalViewSelected() { return true; }
+    @Override public void copyModeChanged(boolean copyMode) {}
+    @Override public boolean onKeyDown(int keyCode, KeyEvent event, TerminalSession currentSession) { return false; }
+    @Override public boolean onKeyUp(int keyCode, KeyEvent event) { return false; }
+    @Override public boolean onLongPress(MotionEvent event) { return false; }
+    @Override public boolean readControlKey() { return false; }
+    @Override public boolean readAltKey() { return false; }
+    @Override public boolean readShiftKey() { return false; }
+    @Override public boolean readFnKey() { return false; }
+    @Override public boolean onCodePoint(int codePoint, boolean ctrlDown, TerminalSession currentSession) { return false; }
+    @Override public void onEmulatorSet() {}
+}

@@ -1,0 +1,397 @@
+name: Embedded Termux Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/embedded-termux-engine
+    paths:
+      - ".github/workflows/embedded-termux-android.yml"
+      - ".github/workflows/android-release.yml"
+      - "app.json"
+      - "plugins/withEmbeddedTermux.js"
+      - "modules/embedded-termux/**"
+      - "src/features/terminal/**"
+      - "src/i18n/**"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/**"
+      - "LICENSE"
+      - "LICENSES/**"
+      - "NOTICE"
+      - "docs/architecture/**"
+      - "docs/third-party/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: embedded-termux-${{ github.ref }}
+  # Do not kill multi-hour bootstrap builds on every follow-up push.
+  # GitHub keeps the running build and queues the latest pending revision.
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Build Termux Bootstrap (${{ matrix.arch }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    # ARM64 is the required device target. A 32-bit ARM build is best-effort.
+    continue-on-error: ${{ matrix.arch == 'arm' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - aarch64
+          - arm
+    steps:
+      - name: Checkout Binary-Calc
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Termux packages source
+        uses: actions/checkout@v4
+        with:
+          repository: termux/termux-packages
+          ref: 46ca3fd5a25d42615e7f4cc12c2f7b38c0bdb070
+          path: termux-packages
+
+      - name: Configure the app-specific Termux prefix
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i 's/^TERMUX_APP__PACKAGE_NAME="com.termux"$/TERMUX_APP__PACKAGE_NAME="com.binarycalculator.app"/' scripts/properties.sh
+          sed -i 's/^TERMUX_APP__NAMESPACE="com.termux"$/TERMUX_APP__NAMESPACE="com.binarycalculator.termux"/' scripts/properties.sh
+          sed -i 's/^TERMUX_APP__APP_IDENTIFIER="termux"$/TERMUX_APP__APP_IDENTIFIER="binarycalc"/' scripts/properties.sh
+          grep -Fx 'TERMUX_APP__PACKAGE_NAME="com.binarycalculator.app"' scripts/properties.sh
+          grep -Fx 'TERMUX_APP__NAMESPACE="com.binarycalculator.termux"' scripts/properties.sh
+          grep -Fx 'TERMUX_APP__APP_IDENTIFIER="binarycalc"' scripts/properties.sh
+          echo "Configured app package: com.binarycalculator.app"
+          echo "Configured Termux namespace: com.binarycalculator.termux"
+          echo "Configured private prefix: /data/data/com.binarycalculator.app/files/usr"
+
+      - name: Reconcile bootstrap package names with pinned upstream sources
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          # In this pinned Termux revision, the bootstrap still requests the
+          # old package name "bzip2", but its source package is now "libbz2".
+          # libbz2 produces the required bzip2 subpackage.
+          test -f packages/libbz2/build.sh
+          test -f packages/libbz2/bzip2.subpackage.sh
+          grep -Fq 'PACKAGES+=("bzip2")' scripts/build-bootstraps.sh
+          sed -i 's/PACKAGES+=("bzip2")/PACKAGES+=("libbz2")/' scripts/build-bootstraps.sh
+          grep -Fq 'PACKAGES+=("libbz2")' scripts/build-bootstraps.sh
+          if grep -Fq 'PACKAGES+=("bzip2")' scripts/build-bootstraps.sh; then
+            echo "::error::Stale bzip2 bootstrap package reference remains."
+            exit 1
+          fi
+          # Fail early if another pinned bootstrap package was renamed or removed.
+          required_packages=(
+            apt bash libbz2 command-not-found coreutils dash diffutils findutils
+            gawk grep gzip less procps psmisc sed tar termux-core termux-exec
+            termux-keyring termux-tools util-linux ed debianutils dos2unix
+            inetutils lsof nano net-tools patch unzip
+          )
+          for package in "${required_packages[@]}"; do
+            if [[ ! -f "packages/${package}/build.sh" ]]; then
+              echo "::error::Pinned Termux source is missing packages/${package}/build.sh"
+              exit 1
+            fi
+          done
+          # The restricted upstream AppArmor profile only permits generated
+          # files under output/. Keep the bootstrap ZIP in that approved path.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/build-bootstraps.sh")
+          source = path.read_text()
+          old = 'mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_PACKAGES_DIRECTORY/"'
+          new = 'mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_BUILT_DEBS_DIRECTORY/"'
+          if source.count(old) != 1:
+              raise SystemExit("Pinned bootstrap archive destination differs from expected upstream source; refusing to patch.")
+          path.write_text(source.replace(old, new))
+          PY
+          grep -Fq 'mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_BUILT_DEBS_DIRECTORY/"' scripts/build-bootstraps.sh
+          echo "Verified: generated bootstrap archives are written under the AppArmor-approved output/ directory."
+          echo "Bootstrap package/source preflight passed."
+
+      - name: Verify Termux AppArmor writable output exception
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The restricted Termux profile intentionally denies writes to the
+          # source tree but explicitly permits package output under output/.
+          grep -Fq 'deny /home/builder/termux-packages/[^o]** wlk,' scripts/profile-restricted.apparmor
+          grep -Fq 'allow /home/builder/termux-packages/output/** rw,' scripts/profile-restricted.apparmor
+          mkdir -p output
+          echo "Verified: source tree remains protected and output/ is the approved writable mount path."
+
+      - name: Verify Docker bind-mount writes in the AppArmor-approved output directory
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe="output/.uid-gid-write-probe-${{ matrix.arch }}"
+          rm -f "$probe"
+          echo "Host identity: $(id -u):$(id -g)"
+          # The restricted Termux AppArmor profile denies writes at the source
+          # root by design. Probe the explicitly allowed output/ directory.
+          timeout 10m ./scripts/run-docker.sh bash -lc '
+            set -euo pipefail
+            printf "Container builder identity: %s:%s\n" "$(id -u)" "$(id -g)"
+            printf "Workspace root owner: %s:%s\n" "$(stat -c %u:%g .)"
+            printf "Allowed output directory owner: %s:%s\n" "$(stat -c %u:%g output)"
+            test "$(id -u)" = "$(stat -c %u output)"
+            printf "docker-write-ok\n" > "output/.uid-gid-write-probe-${{ matrix.arch }}"
+            test -s "output/.uid-gid-write-probe-${{ matrix.arch }}"
+          '
+          test -s "$probe"
+          grep -Fxq "docker-write-ok" "$probe"
+          test "$(stat -c %u "$probe")" = "$(id -u)"
+          rm -f "$probe"
+          echo "PASS: container wrote to the AppArmor-approved output/ bind-mount path."
+
+      - name: Prefetch the checksum-pinned dash source into the Termux package cache
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The pinned apt recipe downloads this exact source archive. Termux's
+          # source downloader reuses a checksum-matching file in
+          # $TERMUX_TOPDIR/apt/cache, so prefetch it inside the same persistent
+          # package-builder container before starting the Bootstrap build.
+          ./scripts/run-docker.sh bash -lc '
+            set -euo pipefail
+            cache="$HOME/.termux-build/apt/cache"
+            archive="$cache/dash-0.5.13.5.tar.gz"
+            # The kernel.org snapshot host timed out repeatedly in CI. Try its
+            # read-only repo.or.cz mirror at the exact same upstream commit as
+            # a fallback. Both downloads must match the upstream SHA-256 before
+            # they can enter the Termux source cache.
+            expected="53622e51df0fd7a2950552cfe0da0bee9bfc1510784e752b62eacc49b3776d33"
+            urls=(
+              "https://git.kernel.org/pub/scm/utils/dash/dash.git/snapshot/dash-0.5.13.5.tar.gz"
+              "https://repo.or.cz/dash.git/snapshot/037bbdfd330017c368caf6242f977974123239b5.tar.gz"
+            )
+            mkdir -p "$cache"
+
+            if [[ -f "$archive" ]] && printf "%s  %s\\n" "$expected" "$archive" | sha256sum --check --status; then
+              echo "Using existing checksum-verified dash source cache."
+              exit 0
+            fi
+
+            rm -f "$archive"
+            temporary="$archive.part"
+            trap '\''rm -f "$temporary"'\'' EXIT
+            downloaded=0
+            for url in "${urls[@]}"; do
+              echo "Trying pinned dash source: $url"
+              rm -f "$temporary"
+              if curl --fail --location --retry 3 --retry-all-errors --retry-delay 5 --connect-timeout 20 --max-time 240 --retry-max-time 300 --output "$temporary" "$url"; then
+                if printf "%s  %s\\n" "$expected" "$temporary" | sha256sum --check; then
+                  mv "$temporary" "$archive"
+                  downloaded=1
+                  break
+                fi
+                echo "::warning::Downloaded dash archive did not match the pinned upstream SHA-256; rejecting this mirror."
+              else
+                echo "::warning::Dash source host failed; trying the next pinned mirror."
+              fi
+            done
+            if [[ "$downloaded" -ne 1 ]]; then
+              echo "::error::Could not obtain the exact checksum-pinned dash 0.5.13.5 source from any configured upstream mirror."
+              exit 1
+            fi
+            trap - EXIT
+            printf "%s  %s\\n" "$expected" "$archive" | sha256sum --check
+            echo "Verified dash source cached at: $archive"
+          '
+      - name: Build the official apt-android-7 bootstrap from pinned Termux sources
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The container is fresh, so no force-clean is needed. The pinned upstream
+          # build-bootstraps.sh currently references an unset *_FOR_ARCH variable
+          # when -f is passed, which expands to a dangerous root glob.
+          # Retry the bootstrap build when an upstream source host temporarily times out.
+          # Keep retries inside the same runner so already-built packages remain cached.
+          build_succeeded=0
+          for attempt in 1 2 3; do
+            echo "Bootstrap build attempt ${attempt}/3 for ${{ matrix.arch }}"
+            if ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}"; then
+              build_succeeded=1
+              break
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              delay=$((attempt * 30))
+              echo "Bootstrap build failed; retrying in ${delay}s (runner cache will be retained)."
+              sleep "${delay}"
+            fi
+          done
+          if [ "${build_succeeded}" -ne 1 ]; then
+            echo "::error::Bootstrap build failed after 3 attempts for ${{ matrix.arch }}"
+            exit 1
+          fi
+          archive="output/bootstrap-${{ matrix.arch }}.zip"
+          test -s "$archive"
+          unzip -Z1 "$archive" > bootstrap-file-list.txt
+          required_runtime_files=(
+            bin/bash
+            bin/apt
+            bin/dpkg
+            bin/pkg
+            lib/libtermux-exec-direct-ld-preload.so
+            lib/libtermux-exec-linker-ld-preload.so
+            lib/libtermux-exec-ld-preload.so
+            etc/termux/termux-bootstrap/second-stage/termux-bootstrap-second-stage.sh
+            etc/profile.d/01-termux-bootstrap-second-stage-fallback.sh
+            SYMLINKS.txt
+          )
+          for required_file in "${required_runtime_files[@]}"; do
+            if ! grep -Fxq "$required_file" bootstrap-file-list.txt; then
+              echo "::error::Bootstrap archive is missing required runtime entry: $required_file"
+              exit 1
+            fi
+          done
+          echo "Verified apt bootstrap payload, second-stage installer and both termux-exec linker variants."
+          sha256sum "$archive"
+          mkdir -p ../termux-bootstrap-artifacts
+          cp "$archive" "../termux-bootstrap-artifacts/bootstrap-${{ matrix.arch }}.zip"
+          sha256sum "$archive" | awk '{print $1}' > "../termux-bootstrap-artifacts/bootstrap-${{ matrix.arch }}.zip.sha256"
+          bash ../scripts/generate-termux-bootstrap-notices.sh "$PWD" "${{ matrix.arch }}" "../termux-bootstrap-artifacts/termux-bootstrap-packages-${{ matrix.arch }}.csv"
+          git rev-parse HEAD > ../termux-bootstrap-artifacts/termux-packages-source-commit-${{ matrix.arch }}.txt
+
+      - name: Upload custom bootstrap
+        uses: actions/upload-artifact@v4
+        with:
+          name: termux-bootstrap-${{ matrix.arch }}
+          path: termux-bootstrap-artifacts/*
+          if-no-files-found: error
+          retention-days: 7
+
+  android:
+    name: Build Binary-Calc with embedded Termux
+    runs-on: ubuntu-24.04
+    needs: bootstrap
+    timeout-minutes: 120
+    steps:
+      - name: Checkout Binary-Calc
+        uses: actions/checkout@v4
+
+      - name: Download custom bootstrap archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: termux-bootstrap-*
+          merge-multiple: true
+          path: modules/embedded-termux/android/src/main/assets
+
+      - name: Verify and rename bootstrap assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd modules/embedded-termux/android/src/main/assets
+          # ARM64 is mandatory. The 32-bit ARM artifact is optional.
+          test -s bootstrap-aarch64.zip
+          test -s bootstrap-aarch64.zip.sha256
+          mv bootstrap-aarch64.zip termux-bootstrap-aarch64.zip
+          mv bootstrap-aarch64.zip.sha256 termux-bootstrap-aarch64.zip.sha256
+          echo "$(cat termux-bootstrap-aarch64.zip.sha256)  termux-bootstrap-aarch64.zip" | sha256sum -c -
+
+          if [[ -s bootstrap-arm.zip && -s bootstrap-arm.zip.sha256 ]]; then
+            mv bootstrap-arm.zip termux-bootstrap-arm.zip
+            mv bootstrap-arm.zip.sha256 termux-bootstrap-arm.zip.sha256
+            echo "$(cat termux-bootstrap-arm.zip.sha256)  termux-bootstrap-arm.zip" | sha256sum -c -
+            echo "arm32-bootstrap=available" > bootstrap-architecture-status.txt
+          else
+            echo "::warning::32-bit ARM Bootstrap was not produced; this APK will be restricted to arm64-v8a."
+            echo "arm32-bootstrap=unavailable" > bootstrap-architecture-status.txt
+          fi
+          cp "$GITHUB_WORKSPACE/LICENSE" BinaryCalc-GPL-3.0.txt
+          cp "$GITHUB_WORKSPACE/LICENSES/Apache-2.0.txt" Apache-2.0.txt
+          cp "$GITHUB_WORKSPACE/NOTICE" NOTICE.txt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Generate Android native project
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Validate Expo React Native autolinking configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Generated Android settings.gradle autolinking configuration:"
+          grep -n -E 'expo-autolinking-settings|expoAutolinking|autolinkLibrariesFromCommand' android/settings.gradle
+          grep -Fq 'ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)' android/settings.gradle
+          node --no-warnings --eval "require(require.resolve('expo-modules-autolinking', { paths: [require.resolve('expo/package.json')] }))(process.argv.slice(1))" react-native-config --json --platform android > "$RUNNER_TEMP/react-native-autolinking.json"
+          node -e "const fs=require('fs'); const value=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if (!value || typeof value !== 'object' || !value.dependencies) process.exit(1); console.log('Expo autolinking JSON validated; dependencies:', Object.keys(value.dependencies).length);" "$RUNNER_TEMP/react-native-autolinking.json"
+
+      - name: Restrict APK ABI when optional 32-bit Bootstrap is unavailable
+        if: hashFiles('modules/embedded-termux/android/src/main/assets/termux-bootstrap-arm.zip') == ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("android/app/build.gradle")
+          source = path.read_text()
+          anchor = "defaultConfig {"
+          if source.count(anchor) != 1:
+              raise SystemExit("Could not identify exactly one defaultConfig block to apply the ARM64-only ABI filter.")
+          if "abiFilters" in source:
+              raise SystemExit("An existing ABI filter is present; refusing to overwrite it.")
+          source = source.replace(anchor, anchor + '\n        ndk { abiFilters "arm64-v8a" }', 1)
+          path.write_text(source)
+          PY
+          grep -Fq 'abiFilters "arm64-v8a"' android/app/build.gradle
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verify APK identity, target SDK and embedded bootstrap assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          sdk_root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          aapt="$(find "$sdk_root/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt"
+          "$aapt" dump badging "$apk" > apk-badging.txt
+          grep -Fq "package: name='com.binarycalculator.app'" apk-badging.txt
+          grep -Fq "targetSdkVersion:'36'" apk-badging.txt
+          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-aarch64.zip'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-aarch64.zip.sha256'
+          if [[ -f modules/embedded-termux/android/src/main/assets/termux-bootstrap-arm.zip ]]; then
+            unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-arm.zip'
+            unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-arm.zip.sha256'
+            echo "APK includes ARM64 and optional ARM bootstrap assets."
+          else
+            grep -Fq 'abiFilters "arm64-v8a"' android/app/build.gradle
+            echo "APK is explicitly ARM64-only because the optional ARM bootstrap is unavailable."
+          fi
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-calc-embedded-termux-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
