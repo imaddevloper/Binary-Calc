@@ -358,11 +358,18 @@ jobs:
             ready=1
             for artifact in "${artifacts[@]}"; do
               pom="$RUNNER_TEMP/${artifact}.pom"
-              aar="$RUNNER_TEMP/${artifact}.aar"
+              module="$RUNNER_TEMP/${artifact}.module"
+              aar="$RUNNER_TEMP/${artifact}-release.aar"
               pom_url="${base}/${artifact}/${version}/${artifact}-${version}.pom"
-              aar_url="${base}/${artifact}/${version}/${artifact}-${version}.aar"
+              module_url="${base}/${artifact}/${version}/${artifact}-${version}.module"
+              # JitPack publishes Android variants with the "-release" classifier
+              # (and "-debug"), not as an unclassified <artifact>-<version>.aar.
+              aar_url="${base}/${artifact}/${version}/${artifact}-${version}-release.aar"
 
               if ! curl --fail --silent --show-error --location --connect-timeout 20 --max-time 60 "$pom_url" --output "$pom" 2>/dev/null || [[ ! -s "$pom" ]]; then
+                ready=0
+              fi
+              if ! curl --fail --silent --show-error --location --connect-timeout 20 --max-time 60 "$module_url" --output "$module" 2>/dev/null || [[ ! -s "$module" ]]; then
                 ready=0
               fi
               if ! curl --fail --silent --show-error --location --connect-timeout 20 --max-time 60 "$aar_url" --output "$aar" 2>/dev/null || [[ ! -s "$aar" ]]; then
@@ -376,7 +383,7 @@ jobs:
                 cat "$RUNNER_TEMP/terminal-view.pom"
                 exit 1
               fi
-              echo "Verified terminal-view and terminal-emulator POM/AAR artifacts for $version."
+              echo "Verified terminal-view and terminal-emulator POM, Gradle module metadata and release AAR artifacts for $version."
               exit 0
             fi
 
