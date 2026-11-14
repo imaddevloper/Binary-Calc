@@ -342,6 +342,55 @@ jobs:
           node --no-warnings --eval "require(require.resolve('expo-modules-autolinking', { paths: [require.resolve('expo/package.json')] }))(process.argv.slice(1))" react-native-config --json --platform android > "$RUNNER_TEMP/react-native-autolinking.json"
           node -e "const fs=require('fs'); const value=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if (!value || typeof value !== 'object' || !value.dependencies) process.exit(1); console.log('Expo autolinking JSON validated; dependencies:', Object.keys(value.dependencies).length);" "$RUNNER_TEMP/react-native-autolinking.json"
 
+      - name: Wait for the pinned Termux JitPack libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://jitpack.io/com/termux/termux-app"
+          version="8629e632fc"
+          artifacts=(terminal-view terminal-emulator)
+          deadline=$((SECONDS + 1200))
+
+          echo "Waiting for the exact Termux commit artifacts from the preferred com.termux JitPack group."
+          echo "JitPack can take up to 15 minutes to build a commit and publish its AAR files."
+
+          while (( SECONDS < deadline )); do
+            ready=1
+            for artifact in "${artifacts[@]}"; do
+              pom="$RUNNER_TEMP/${artifact}.pom"
+              aar="$RUNNER_TEMP/${artifact}.aar"
+              pom_url="${base}/${artifact}/${version}/${artifact}-${version}.pom"
+              aar_url="${base}/${artifact}/${version}/${artifact}-${version}.aar"
+
+              if ! curl --fail --silent --show-error --location --connect-timeout 20 --max-time 60 "$pom_url" --output "$pom" 2>/dev/null || [[ ! -s "$pom" ]]; then
+                ready=0
+              fi
+              if ! curl --fail --silent --show-error --location --connect-timeout 20 --max-time 60 "$aar_url" --output "$aar" 2>/dev/null || [[ ! -s "$aar" ]]; then
+                ready=0
+              fi
+            done
+
+            if [[ "$ready" -eq 1 ]]; then
+              if ! grep -q '<artifactId>terminal-emulator</artifactId>' "$RUNNER_TEMP/terminal-view.pom"; then
+                echo "::error::The published terminal-view POM does not declare terminal-emulator as expected."
+                cat "$RUNNER_TEMP/terminal-view.pom"
+                exit 1
+              fi
+              echo "Verified terminal-view and terminal-emulator POM/AAR artifacts for $version."
+              exit 0
+            fi
+
+            echo "JitPack artifacts are not ready yet; retrying in 30 seconds ($((deadline - SECONDS)) seconds remain)."
+            sleep 30
+          done
+
+          echo "::error::Termux JitPack artifacts were not published within 20 minutes."
+          echo "JitPack build log for the pinned commit:"
+          curl --fail --silent --show-error --location --max-time 60 "${base}/${version}/build.log" | tail -n 200 || true
+          echo "JitPack build status API:"
+          curl --fail --silent --show-error --location --max-time 60 "https://jitpack.io/api/builds/com.termux/termux-app/${version}" || true
+          exit 1
+
       - name: Restrict APK ABI when optional 32-bit Bootstrap is unavailable
         if: hashFiles('modules/embedded-termux/android/src/main/assets/termux-bootstrap-arm.zip') == ''
         shell: bash
@@ -363,7 +412,7 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        run: ./gradlew :app:assembleDebug --no-daemon --refresh-dependencies --stacktrace
 
       - name: Verify APK identity, target SDK and embedded bootstrap assets
         shell: bash
