@@ -323,7 +323,7 @@ jobs:
               raise SystemExit("Could not identify exactly one defaultConfig block to apply the ARM64-only ABI filter.")
           if "abiFilters" in source:
               raise SystemExit("An existing ABI filter is present; refusing to overwrite it.")
-          source = source.replace(anchor, anchor + '\\n        ndk { abiFilters "arm64-v8a" }', 1)
+          source = source.replace(anchor, anchor + '\n        ndk { abiFilters "arm64-v8a" }', 1)
           path.write_text(source)
           PY
           grep -Fq 'abiFilters "arm64-v8a"' android/app/build.gradle
