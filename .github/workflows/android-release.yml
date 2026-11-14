@@ -1,8 +1,8 @@
 name: Android Release APK
 
 on:
-  # Automatic builds are temporarily disabled during maintenance.
-  # Run manually from the Actions tab when explicitly requested.
+  # Manual release only. Runtime assets must come from a successful same-commit
+  # Embedded Termux Android workflow run.
   workflow_dispatch:
 
 permissions:
@@ -15,9 +15,9 @@ concurrency:
 
 jobs:
   build-android:
-    name: Build Android APK
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
+    name: Build Android APK with verified Termux runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
@@ -60,17 +60,15 @@ jobs:
             cp "$temp_dir/arm/termux-bootstrap-packages-arm.csv" "$assets/termux-bootstrap-packages-arm.csv"
             cp "$temp_dir/arm/termux-packages-source-commit-arm.txt" "$assets/termux-packages-source-commit-arm.txt"
             echo "$(cat "$assets/termux-bootstrap-arm.zip.sha256")  $assets/termux-bootstrap-arm.zip" | sha256sum -c -
-            echo "arm32-bootstrap=available" > "$assets/bootstrap-architecture-status.txt"
           else
-            echo "::warning::No ARM32 Bootstrap artifact is available for this commit; release will be ARM64-only."
-            echo "arm32-bootstrap=unavailable" > "$assets/bootstrap-architecture-status.txt"
+            echo "::warning::No ARM32 Bootstrap artifact is available for this commit; the release will be ARM64-only."
           fi
 
           cp "$GITHUB_WORKSPACE/LICENSE" "$assets/BinaryCalc-GPL-3.0.txt"
           cp "$GITHUB_WORKSPACE/LICENSES/Apache-2.0.txt" "$assets/Apache-2.0.txt"
           cp "$GITHUB_WORKSPACE/NOTICE" "$assets/NOTICE.txt"
           echo "Using Bootstrap artifacts from run $run_id for commit $GITHUB_SHA."
-          find "$assets" -maxdepth 1 -type f -printf '%f\n' | sort
+          find "$assets" -maxdepth 1 -type f -printf '%f\\n' | sort
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -138,7 +136,7 @@ jobs:
               raise SystemExit("Could not identify exactly one defaultConfig block for ARM64-only release configuration.")
           if "abiFilters" in source:
               raise SystemExit("An existing ABI filter is present; refusing to overwrite it.")
-          source = source.replace(anchor, anchor + '\n        ndk { abiFilters "arm64-v8a" }', 1)
+          source = source.replace(anchor, anchor + '\\n        ndk { abiFilters "arm64-v8a" }', 1)
           path.write_text(source)
           PY
           grep -Fq 'abiFilters "arm64-v8a"' android/app/build.gradle
@@ -149,12 +147,25 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace assembleRelease
 
-      - name: Verify release APK identity, ABI and embedded runtime assets
+      - name: Prepare APK
         shell: bash
         run: |
           set -euo pipefail
           apk="android/app/build/outputs/apk/release/app-release.apk"
+          if [[ ! -s "$apk" ]]; then
+            echo "::error::Expected APK was not created: $apk"
+            find android/app/build/outputs -maxdepth 5 -type f -name "*.apk" -print 2>/dev/null || true
+            exit 1
+          fi
           mkdir -p release
+          cp "$apk" "release/Binary-Calculator-${GITHUB_REF_NAME}.apk"
+          cp "$apk" "release/Binary-Calculator.apk"
+
+      - name: Verify release APK identity, ABI and embedded runtime assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="release/Binary-Calculator.apk"
           sdk_root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           aapt="$(find "$sdk_root/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           test -x "$aapt"
@@ -173,11 +184,15 @@ jobs:
           else
             grep -Fq 'abiFilters "arm64-v8a"' android/app/build.gradle
           fi
-          unzip -Z1 "$apk" | grep -Eq '^lib/arm64-v8a/.*\\.so      - name: Upload APK artifact
+          unzip -Z1 "$apk" | grep -Eq '^lib/arm64-v8a/.*\\.so$'
+          sha256sum "$apk" | tee release/Binary-Calculator.apk.sha256
+          echo "Release APK identity, target SDK, ARM64 native ABI and required Termux assets verified."
+
+      - name: Upload APK and build metadata
         uses: actions/upload-artifact@v4
         with:
           name: Binary-Calculator-APK
-          path: release/*.apk
+          path: release/*
           if-no-files-found: error
           retention-days: 30
 
@@ -186,38 +201,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: release/Binary-Calculator-*.apk
-          fail_on_unmatched_files: true
-
-          sha256sum "$apk" | tee release/app-release.apk.sha256
-          echo "Release APK identity, target SDK, ARM64 native ABI, and required Termux assets verified."
-
-      - name: Prepare APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
-          if [[ ! -s "$APK_PATH" ]]; then
-            echo "Expected APK was not created: $APK_PATH"
-            find android/app/build/outputs -maxdepth 5 -type f -name "*.apk" -print 2>/dev/null || true
-            exit 1
-          fi
-          mkdir -p release
-          cp "$APK_PATH" "release/Binary-Calculator-${GITHUB_REF_NAME}.apk"
-          cp "$APK_PATH" "release/Binary-Calculator.apk"
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Binary-Calculator-APK
-          path: release/*.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: release/Binary-Calculator-*.apk
+          files: |
+            release/Binary-Calculator-*.apk
+            release/Binary-Calculator.apk.sha256
           fail_on_unmatched_files: true
