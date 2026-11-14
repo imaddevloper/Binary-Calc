@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA" --workflow ".github/workflows/embedded-termux-android.yml" --status success --limit 10 --json databaseId --jq '.[0].databaseId // empty')"
+          run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA" --workflow ".github/workflows/embedded-termux-android.yml" --status completed --limit 20 --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")][0].databaseId // empty')"
           if [[ -z "$run_id" ]]; then
             echo "::error::No successful Embedded Termux Android run exists for this exact commit ($GITHUB_SHA). Refusing to build a release APK without verified runtime assets."
             exit 1
