@@ -22,7 +22,7 @@ Status: native integration and bootstrap pipeline implemented on `feature/embedd
    - Arabic and English translations and a Home shortcut are present.
 
 3. **Self-contained runtime**
-   - GitHub Actions builds the upstream `apt-android-7` bootstrap for `aarch64` and `arm` from pinned `termux-packages` source, changing the build prefix/package identity to `com.binarycalculator.app`.
+   - GitHub Actions builds the upstream `apt-android-7` bootstrap for `aarch64` as the required target. The `arm` (32-bit) artifact is best-effort and does not block a valid ARM64 APK. Both are built from pinned `termux-packages` source with the Binary-Calc package identity and prefix.
    - Bootstrap archives are transferred as workflow artifacts, checksum manifests are packaged beside them, and the Android installer verifies SHA-256 before extraction.
    - First-run extraction is staged under app-private storage, validates archive paths, restores symlinks, activates by rename and marks managed prefixes for interrupted-install recovery.
    - The installer explicitly runs the upstream second-stage package maintainer scripts through the Android system linker when required, then checks Bash, apt, dpkg, `pkg`, `id` and `uname` before declaring the runtime ready.
@@ -63,11 +63,15 @@ The feature is not complete for release until all of these pass:
 - APK installs and launches on a clean Android 13 ARM64 device with no standalone Termux installed.
 - First-run setup succeeds; `bash`, `pwd`, `ls`, `echo`, pipes, redirection, environment variables and Ctrl-C work.
 - Terminal input opens the Android keyboard; copy/paste and resize work.
-- `pkg update`, installing Python and Git, and executing them succeed against the matching Termux repositories.
+- Gate 0 shell validation succeeds (`bash`, `pwd`, `ls`, `echo`, pipes, redirection, environment variables and Ctrl-C). Package installation is NOT a Gate 0 acceptance criterion.
 - Installed packages and files persist after force-stop, reboot and app upgrade.
 - Interrupted first-run installation can be retried without deleting unrelated user data.
 - Existing Binary-Calc calculator, OCR, Supabase remote management, FCM/notifications and learning routes remain functional.
 - GPL corresponding-source, build/install scripts and complete third-party package-license review are ready before distributing APKs.
+
+## Independent package repository status (ADR-0002)
+
+The current branch does not yet provide an independent Binary-Calc APT repository. The initial Bootstrap includes the package-management tools (`apt`, `dpkg`, and `pkg`), but this does not make the official Termux repositories compatible with the custom prefix. Do not claim that `pkg update` or `pkg install` is supported, and do not point APT at official Termux mirrors. Package installation remains blocked until a separate custom-prefix package build, signed repository metadata, trusted public key, and device-level package tests are completed under ADR-0002.
 
 ## Runtime and security limits
 
