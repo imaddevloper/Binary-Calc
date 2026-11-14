@@ -177,9 +177,7 @@ jobs:
             temporary="$archive.part"
             trap '\''rm -f "$temporary"'\'' EXIT
             echo "Prefetching pinned dash source with bounded retries..."
-            curl --fail --location --retry 8 --retry-all-errors --retry-delay 10 \\
-              --connect-timeout 60 --max-time 900 \\
-              --output "$temporary" "$url"
+            curl --fail --location --retry 8 --retry-all-errors --retry-delay 10 --connect-timeout 60 --max-time 900 --output "$temporary" "$url"
             printf "%s  %s\n" "$expected" "$temporary" | sha256sum --check
             mv "$temporary" "$archive"
             trap - EXIT
