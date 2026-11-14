@@ -7,6 +7,7 @@ on:
       - feature/embedded-termux-engine
     paths:
       - ".github/workflows/embedded-termux-android.yml"
+      - ".github/workflows/android-release.yml"
       - "app.json"
       - "plugins/withEmbeddedTermux.js"
       - "modules/embedded-termux/**"
