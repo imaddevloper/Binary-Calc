@@ -70,7 +70,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/LICENSES/Apache-2.0.txt" "$assets/Apache-2.0.txt"
           cp "$GITHUB_WORKSPACE/NOTICE" "$assets/NOTICE.txt"
           echo "Using Bootstrap artifacts from run $run_id for commit $GITHUB_SHA."
-          find "$assets" -maxdepth 1 -type f -printf '%f\\n' | sort
+          find "$assets" -maxdepth 1 -type f -printf '%f\n' | sort
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -138,7 +138,7 @@ jobs:
               raise SystemExit("Could not identify exactly one defaultConfig block for ARM64-only release configuration.")
           if "abiFilters" in source:
               raise SystemExit("An existing ABI filter is present; refusing to overwrite it.")
-          source = source.replace(anchor, anchor + '\\n        ndk { abiFilters "arm64-v8a" }', 1)
+          source = source.replace(anchor, anchor + '\n        ndk { abiFilters "arm64-v8a" }', 1)
           path.write_text(source)
           PY
           grep -Fq 'abiFilters "arm64-v8a"' android/app/build.gradle
@@ -154,6 +154,7 @@ jobs:
         run: |
           set -euo pipefail
           apk="android/app/build/outputs/apk/release/app-release.apk"
+          mkdir -p release
           sdk_root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           aapt="$(find "$sdk_root/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           test -x "$aapt"
