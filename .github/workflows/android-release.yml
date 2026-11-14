@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: write
 
 concurrency:
@@ -24,6 +25,52 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Download Bootstrap artifacts from the exact same commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA" --workflow ".github/workflows/embedded-termux-android.yml" --status success --limit 10 --json databaseId --jq '.[0].databaseId // empty')"
+          if [[ -z "$run_id" ]]; then
+            echo "::error::No successful Embedded Termux Android run exists for this exact commit ($GITHUB_SHA). Refusing to build a release APK without verified runtime assets."
+            exit 1
+          fi
+
+          temp_dir="$(mktemp -d)"
+          trap 'rm -rf "$temp_dir"' EXIT
+          assets="$GITHUB_WORKSPACE/modules/embedded-termux/android/src/main/assets"
+          mkdir -p "$assets"
+
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name termux-bootstrap-aarch64 --dir "$temp_dir/aarch64"
+          test -s "$temp_dir/aarch64/bootstrap-aarch64.zip"
+          test -s "$temp_dir/aarch64/bootstrap-aarch64.zip.sha256"
+          cp "$temp_dir/aarch64/bootstrap-aarch64.zip" "$assets/termux-bootstrap-aarch64.zip"
+          cp "$temp_dir/aarch64/bootstrap-aarch64.zip.sha256" "$assets/termux-bootstrap-aarch64.zip.sha256"
+          cp "$temp_dir/aarch64/termux-bootstrap-packages-aarch64.csv" "$assets/termux-bootstrap-packages-aarch64.csv"
+          cp "$temp_dir/aarch64/termux-packages-source-commit-aarch64.txt" "$assets/termux-packages-source-commit-aarch64.txt"
+          echo "$(cat "$assets/termux-bootstrap-aarch64.zip.sha256")  $assets/termux-bootstrap-aarch64.zip" | sha256sum -c -
+
+          if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name termux-bootstrap-arm --dir "$temp_dir/arm"; then
+            test -s "$temp_dir/arm/bootstrap-arm.zip"
+            test -s "$temp_dir/arm/bootstrap-arm.zip.sha256"
+            cp "$temp_dir/arm/bootstrap-arm.zip" "$assets/termux-bootstrap-arm.zip"
+            cp "$temp_dir/arm/bootstrap-arm.zip.sha256" "$assets/termux-bootstrap-arm.zip.sha256"
+            cp "$temp_dir/arm/termux-bootstrap-packages-arm.csv" "$assets/termux-bootstrap-packages-arm.csv"
+            cp "$temp_dir/arm/termux-packages-source-commit-arm.txt" "$assets/termux-packages-source-commit-arm.txt"
+            echo "$(cat "$assets/termux-bootstrap-arm.zip.sha256")  $assets/termux-bootstrap-arm.zip" | sha256sum -c -
+            echo "arm32-bootstrap=available" > "$assets/bootstrap-architecture-status.txt"
+          else
+            echo "::warning::No ARM32 Bootstrap artifact is available for this commit; release will be ARM64-only."
+            echo "arm32-bootstrap=unavailable" > "$assets/bootstrap-architecture-status.txt"
+          fi
+
+          cp "$GITHUB_WORKSPACE/LICENSE" "$assets/BinaryCalc-GPL-3.0.txt"
+          cp "$GITHUB_WORKSPACE/LICENSES/Apache-2.0.txt" "$assets/Apache-2.0.txt"
+          cp "$GITHUB_WORKSPACE/NOTICE" "$assets/NOTICE.txt"
+          echo "Using Bootstrap artifacts from run $run_id for commit $GITHUB_SHA."
+          find "$assets" -maxdepth 1 -type f -printf '%f\\n' | sort
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -77,11 +124,72 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install --clean
 
+      - name: Restrict release APK ABI when optional 32-bit Bootstrap is unavailable
+        if: hashFiles('modules/embedded-termux/android/src/main/assets/termux-bootstrap-arm.zip') == ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("android/app/build.gradle")
+          source = path.read_text()
+          anchor = "defaultConfig {"
+          if source.count(anchor) != 1:
+              raise SystemExit("Could not identify exactly one defaultConfig block for ARM64-only release configuration.")
+          if "abiFilters" in source:
+              raise SystemExit("An existing ABI filter is present; refusing to overwrite it.")
+          source = source.replace(anchor, anchor + '\\n        ndk { abiFilters "arm64-v8a" }', 1)
+          path.write_text(source)
+          PY
+          grep -Fq 'abiFilters "arm64-v8a"' android/app/build.gradle
+
       - name: Build release APK
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace assembleRelease
+
+      - name: Verify release APK identity, ABI and embedded runtime assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="android/app/build/outputs/apk/release/app-release.apk"
+          sdk_root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          aapt="$(find "$sdk_root/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt"
+          "$aapt" dump badging "$apk" > release/apk-badging.txt
+          grep -Fq "package: name='com.binarycalculator.app'" release/apk-badging.txt
+          grep -Fq "targetSdkVersion:'36'" release/apk-badging.txt
+          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-aarch64.zip'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-aarch64.zip.sha256'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-packages-aarch64.csv'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/NOTICE.txt'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/BinaryCalc-GPL-3.0.txt'
+          unzip -Z1 "$apk" | grep -Fxq 'assets/Apache-2.0.txt'
+          if [[ -f modules/embedded-termux/android/src/main/assets/termux-bootstrap-arm.zip ]]; then
+            unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-arm.zip'
+            unzip -Z1 "$apk" | grep -Fxq 'assets/termux-bootstrap-arm.zip.sha256'
+          else
+            grep -Fq 'abiFilters "arm64-v8a"' android/app/build.gradle
+          fi
+          unzip -Z1 "$apk" | grep -Eq '^lib/arm64-v8a/.*\\.so      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Binary-Calculator-APK
+          path: release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release/Binary-Calculator-*.apk
+          fail_on_unmatched_files: true
+
+          sha256sum "$apk" | tee release/app-release.apk.sha256
+          echo "Release APK identity, target SDK, ARM64 native ABI, and required Termux assets verified."
 
       - name: Prepare APK
         shell: bash
