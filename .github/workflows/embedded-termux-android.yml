@@ -80,6 +80,21 @@ jobs:
           # libbz2 produces the required bzip2 subpackage.
           test -f packages/libbz2/build.sh
           test -f packages/libbz2/bzip2.subpackage.sh
+          # The pinned mirror returned a 7 KB HTML error page in CI, rejected by
+          # the unchanged upstream SHA-256. Use the canonical upstream host for
+          # this exact versioned archive; never weaken or bypass checksum checks.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("packages/dialog/build.sh")
+          source = path.read_text()
+          old = 'TERMUX_PKG_SRCURL="https://invisible-mirror.net/archives/dialog/dialog-${TERMUX_PKG_VERSION}.tgz"'
+          new = 'TERMUX_PKG_SRCURL="https://invisible-island.net/archives/dialog/dialog-${TERMUX_PKG_VERSION}.tgz"'
+          if source.count(old) != 1:
+              raise SystemExit("Pinned dialog source URL differs from the reviewed mirror entry; refusing to patch.")
+          path.write_text(source.replace(old, new))
+          PY
+          grep -Fq 'TERMUX_PKG_SRCURL="https://invisible-island.net/archives/dialog/dialog-${TERMUX_PKG_VERSION}.tgz"' packages/dialog/build.sh
           grep -Fq 'PACKAGES+=("bzip2")' scripts/build-bootstraps.sh
           sed -i 's/PACKAGES+=("bzip2")/PACKAGES+=("libbz2")/' scripts/build-bootstraps.sh
           grep -Fq 'PACKAGES+=("libbz2")' scripts/build-bootstraps.sh
