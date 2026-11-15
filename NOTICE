@@ -1,0 +1,15 @@
+Binary-Calc — Third-party notices
+
+Binary-Calc includes the upstream Termux terminal-view and terminal-emulator Android libraries.
+Source repository: https://github.com/termux/termux-app
+Pinned source revision: 8629e632fcb95da272221be327db653fb24befe9
+Source: https://github.com/termux/termux-app/tree/8629e632fcb95da272221be327db653fb24befe9
+The upstream Termux app license identifies terminal-view and terminal-emulator as Apache-2.0 exceptions. Their original copyright and license notices remain part of the upstream source artifacts.
+
+The app-specific Termux bootstrap is built from:
+https://github.com/termux/termux-packages/tree/46ca3fd5a25d42615e7f4cc12c2f7b38c0bdb070
+The bootstrap contains separately licensed Termux packages. The build workflow generates per-architecture package/license inventories and bundles them as Android assets. Those inventories are generated from the exact .deb files included in each bootstrap archive.
+
+Copyright (C) 2026 Binary-Calc contributors.
+
+Binary-Calc is distributed under GPL-3.0-only. This software is provided WITHOUT ANY WARRANTY; recipients may convey copies under the terms of GPL-3.0-only. The full license text is available from the in-app Licenses & Notices screen and in LICENSE. See LICENSES/Apache-2.0.txt for the terminal libraries' license.

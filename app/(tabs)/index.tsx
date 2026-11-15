@@ -67,6 +67,7 @@ export default function Home() {
         <FeatureCard icon="camera" title={t('home.f.scan')} description={t('home.f.scanDesc')} onPress={() => router.push('/scanner')} />
         <FeatureCard icon="school" title={t('home.f.learn')} description={t('home.f.learnDesc')} onPress={() => go('/learning')} />
         <FeatureCard icon="time" title={t('home.f.history')} description={t('home.f.historyDesc')} onPress={() => go('/history')} />
+        <FeatureCard icon="terminal" title={t('home.f.terminal')} description={t('home.f.terminalDesc')} onPress={() => go('/terminal')} />
       </View>
 
       <Card>

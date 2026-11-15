@@ -10,6 +10,7 @@ import { ErrorMessage, InfoMessage } from "../src/components/Feedback";
 import { useTheme } from "../src/theme/ThemeProvider";
 import { spacing } from "../src/theme/spacing";
 import { supabase } from "../src/remote/supabase";
+import { processPendingSupabaseCommands } from "../src/remote/supabase-commands";
 import { registerCurrentDevice, updateCurrentDeviceHeartbeat, syncFolderGrantMetadata, enableRemotePushNotifications } from "../src/remote/supabase-device";
 import { addFolderGrant, listFolderGrants, removeFolderGrant } from "../src/remote/storage";
 import type { FolderGrantSummary } from "../src/remote/storage";
@@ -39,6 +40,10 @@ export default function RemoteScreen() {
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setError(null);
+      if (!nextSession?.user?.id) {
+        setDeviceId(null);
+        setFolders([]);
+      }
     });
     return () => {
       alive = false;
@@ -51,17 +56,16 @@ export default function RemoteScreen() {
   }, []);
 
   useEffect(() => {
-    if (!session?.user?.id) {
-      setDeviceId(null);
-      setFolders([]);
-      return;
-    }
+    if (!session?.user?.id) return;
     let alive = true;
-    setBusy(true);
-    setMessage("تسجيل هذا الهاتف في حسابك...");
-    void registerCurrentDevice()
+    void Promise.resolve().then(() => {
+      if (!alive) return null;
+      setBusy(true);
+      setMessage("تسجيل هذا الهاتف في حسابك...");
+      return registerCurrentDevice();
+    })
       .then(async (id) => {
-        if (!alive) return;
+        if (!alive || !id) return;
         setDeviceId(id);
         await refreshFolders();
         setMessage("تم تسجيل هذا الهاتف. يمكنك الآن إدارة المجلدات التي اخترتها.");
