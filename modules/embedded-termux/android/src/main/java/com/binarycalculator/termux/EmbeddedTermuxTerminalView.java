@@ -7,12 +7,13 @@ import android.graphics.Typeface;
 import android.os.Build;
 import android.os.VibrationEffect;
 import android.os.Process;
-import android.os.UserHandle;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.FrameLayout;
 
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
@@ -25,32 +26,46 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
-final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalSessionClient, TerminalViewClient {
+/**
+ * React Native host container for Termux's final TerminalView.
+ *
+ * TerminalView is intentionally final in the pinned upstream library, so this
+ * class composes it instead of attempting to subclass it.
+ */
+final class EmbeddedTermuxTerminalView extends FrameLayout implements TerminalSessionClient, TerminalViewClient {
     private static final String TAG = "BinaryCalcTermux";
+    private final TerminalView terminalView;
     private TerminalSession session;
     private boolean sessionStartRequested;
     private int fontSize = 14;
 
     EmbeddedTermuxTerminalView(Context context) {
-        super(context, null);
+        super(context);
+        terminalView = new TerminalView(context, null);
         setFocusable(true);
         setFocusableInTouchMode(true);
-        setTextSize(Math.round(fontSize * getResources().getDisplayMetrics().scaledDensity));
-        setTypeface(Typeface.MONOSPACE);
-        setTerminalViewClient(this);
-        setBackgroundColor(0xFF0B0B0F);
-        addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+        terminalView.setFocusable(true);
+        terminalView.setFocusableInTouchMode(true);
+        terminalView.setTextSize(Math.round(fontSize * getResources().getDisplayMetrics().scaledDensity));
+        terminalView.setTypeface(Typeface.MONOSPACE);
+        terminalView.setTerminalViewClient(this);
+        terminalView.setBackgroundColor(0xFF0B0B0F);
+        addView(terminalView, new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        terminalView.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             if (right > left && bottom > top) startSessionIfReady();
         });
     }
 
     void setFontSize(int size) {
         fontSize = Math.max(10, Math.min(24, size));
-        setTextSize(Math.round(fontSize * getResources().getDisplayMetrics().scaledDensity));
+        terminalView.setTextSize(Math.round(fontSize * getResources().getDisplayMetrics().scaledDensity));
     }
 
     void startSessionIfReady() {
-        if (session != null || sessionStartRequested || getWidth() <= 0 || getHeight() <= 0) return;
+        if (session != null || sessionStartRequested || terminalView.getWidth() <= 0 || terminalView.getHeight() <= 0) return;
         sessionStartRequested = true;
         if (!TermuxBootstrapInstaller.isInstalled(getContext())) {
             sessionStartRequested = false;
@@ -64,8 +79,8 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
                 session = existingSession;
                 session.updateTerminalSessionClient(this);
                 sessionStartRequested = true;
-                attachSession(existingSession);
-                requestFocus();
+                terminalView.attachSession(existingSession);
+                terminalView.requestFocus();
                 return;
             }
 
@@ -75,7 +90,7 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
             File bash = new File(prefix, "bin/bash");
             String architecture = TermuxBootstrapInstaller.getSupportedArchitecture();
             String uid = String.valueOf(Process.myUid());
-            String userId = String.valueOf(UserHandle.myUserId());
+            String userId = String.valueOf(Process.myUid() / 100000);
             String termuxExec = new File(prefix, "lib/libtermux-exec-ld-preload.so").getAbsolutePath();
             String[] env = new String[] {
                 "HOME=" + home.getAbsolutePath(),
@@ -127,8 +142,8 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
                 this
             );
             EmbeddedTermuxSessionHolder.set(session);
-            attachSession(session);
-            requestFocus();
+            terminalView.attachSession(session);
+            terminalView.requestFocus();
         } catch (Exception error) {
             sessionStartRequested = false;
             Log.e(TAG, "Could not start embedded Termux session.", error);
@@ -151,14 +166,14 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
         sessionStartRequested = false;
     }
 
-    @Override public void onTextChanged(TerminalSession changedSession) { post(this::onScreenUpdated); }
-    @Override public void onTitleChanged(TerminalSession changedSession) { post(this::onScreenUpdated); }
+    @Override public void onTextChanged(TerminalSession changedSession) { post(() -> terminalView.onScreenUpdated()); }
+    @Override public void onTitleChanged(TerminalSession changedSession) { post(() -> terminalView.onScreenUpdated()); }
     @Override public void onSessionFinished(TerminalSession finishedSession) {
         if (session == finishedSession) {
             EmbeddedTermuxSessionHolder.clear(session);
             session = null;
             sessionStartRequested = false;
-            post(this::invalidate);
+            post(terminalView::invalidate);
         }
     }
 
@@ -186,8 +201,8 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
             else vibrator.vibrate(35);
         }
     }
-    @Override public void onColorsChanged(TerminalSession source) { post(this::invalidate); }
-    @Override public void onTerminalCursorStateChange(boolean state) { post(this::invalidate); }
+    @Override public void onColorsChanged(TerminalSession source) { post(terminalView::invalidate); }
+    @Override public void onTerminalCursorStateChange(boolean state) { post(terminalView::invalidate); }
     @Override public void setTerminalShellPid(TerminalSession source, int pid) {}
     @Override public Integer getTerminalCursorStyle() { return null; }
 
@@ -201,9 +216,9 @@ final class EmbeddedTermuxTerminalView extends TerminalView implements TerminalS
 
     @Override public float onScale(float scale) { return scale; }
     @Override public void onSingleTapUp(MotionEvent event) {
-        requestFocus();
+        terminalView.requestFocus();
         InputMethodManager input = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (input != null) input.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT);
+        if (input != null) input.showSoftInput(terminalView, InputMethodManager.SHOW_IMPLICIT);
     }
     @Override public boolean shouldBackButtonBeMappedToEscape() { return false; }
     @Override public boolean shouldEnforceCharBasedInput() { return true; }
