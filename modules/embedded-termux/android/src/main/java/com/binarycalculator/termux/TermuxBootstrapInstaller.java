@@ -2,7 +2,6 @@ package com.binarycalculator.termux;
 
 import android.content.Context;
 import android.os.Build;
-import android.os.UserHandle;
 import android.system.Os;
 import android.system.OsConstants;
 
@@ -278,7 +277,7 @@ final class TermuxBootstrapInstaller {
         java.util.Map<String, String> environment = builder.environment();
 
         String uid = String.valueOf(android.os.Process.myUid());
-        String userId = String.valueOf(UserHandle.myUserId());
+        String userId = String.valueOf(android.os.Process.myUid() / 100000);
         String prefixPath = prefix.getAbsolutePath();
         String homePath = home.getAbsolutePath();
         String filesPath = files.getAbsolutePath();
