@@ -20,11 +20,19 @@ android {
 
 dependencies {
     implementation 'com.facebook.react:react-android'
-    // Pin the upstream terminal-view source commit. Its POM declares terminal-emulator
-    // as an API dependency, but JitPack publishes that Android library with the
-    // "release" classifier. Exclude the unclassified transitive artifact and request
-    // the exact published AAR explicitly to avoid Gradle resolving a nonexistent file.
+    // JitPack publishes these Android library variants with the "release"
+    // classifier. Select the exact published AAR for both modules; otherwise
+    // Gradle requests an unclassified file that the successful CI preflight
+    // has already shown is not the published artifact.
     implementation('com.termux.termux-app:terminal-view:8629e632fc') {
+        artifact {
+            name = 'terminal-view'
+            type = 'aar'
+            extension = 'aar'
+            classifier = 'release'
+        }
+        // terminal-view's POM also declares terminal-emulator. Exclude that
+        // unclassified transitive artifact and add its release AAR explicitly.
         exclude group: 'com.termux.termux-app', module: 'terminal-emulator'
     }
     implementation('com.termux.termux-app:terminal-emulator:8629e632fc') {
