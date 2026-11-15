@@ -202,18 +202,29 @@ jobs:
             temporary="$archive.part"
             trap '\''rm -f "$temporary"'\'' EXIT
             downloaded=0
-            for url in "${urls[@]}"; do
-              echo "Trying pinned dash source: $url"
-              rm -f "$temporary"
-              if curl --fail --location --retry 5 --retry-all-errors --retry-delay 10 --connect-timeout 60 --max-time 300 --retry-max-time 900 --output "$temporary" "$url"; then
-                if printf "%s  %s\\n" "$expected" "$temporary" | sha256sum --check; then
-                  mv "$temporary" "$archive"
-                  downloaded=1
-                  break
+            # kernel.org occasionally blackholes a single runner for several minutes
+            # (observed: every connection attempt timed out on one matrix leg while the
+            # other leg succeeded). Re-run the whole download a few times with a pause;
+            # the SHA-256 check below is unchanged.
+            for round in 1 2 3; do
+              for url in "${urls[@]}"; do
+                echo "Trying pinned dash source (round $round/3): $url"
+                rm -f "$temporary"
+                if curl --fail --location --retry 5 --retry-all-errors --retry-delay 10 --connect-timeout 60 --max-time 300 --retry-max-time 900 --output "$temporary" "$url"; then
+                  if printf "%s  %s\\n" "$expected" "$temporary" | sha256sum --check; then
+                    mv "$temporary" "$archive"
+                    downloaded=1
+                    break
+                  fi
+                  echo "::warning::Downloaded dash archive did not match the pinned upstream SHA-256; rejecting this mirror."
+                else
+                  echo "::warning::Dash source host failed; trying the next pinned mirror."
                 fi
-                echo "::warning::Downloaded dash archive did not match the pinned upstream SHA-256; rejecting this mirror."
-              else
-                echo "::warning::Dash source host failed; trying the next pinned mirror."
+              done
+              if [[ "$downloaded" -eq 1 ]]; then break; fi
+              if [[ "$round" -lt 3 ]]; then
+                echo "Dash source unavailable; pausing 60s before round $((round + 1))/3."
+                sleep 60
               fi
             done
             if [[ "$downloaded" -ne 1 ]]; then
