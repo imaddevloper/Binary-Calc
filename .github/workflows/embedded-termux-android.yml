@@ -182,14 +182,14 @@ jobs:
             set -euo pipefail
             cache="$HOME/.termux-build/apt/cache"
             archive="$cache/dash-0.5.13.5.tar.gz"
-            # The kernel.org snapshot host timed out repeatedly in CI. Try its
-            # read-only repo.or.cz mirror at the exact same upstream commit as
-            # a fallback. Both downloads must match the upstream SHA-256 before
-            # they can enter the Termux source cache.
+            # The checksum is for the canonical kernel.org snapshot archive.
+            # A git-host mirror can contain identical source files but a differently
+            # packed tarball, so it is NOT an interchangeable checksum mirror.
+            # Retry the canonical archive with longer connection and retry windows;
+            # never accept a different archive or weaken the pinned SHA-256.
             expected="53622e51df0fd7a2950552cfe0da0bee9bfc1510784e752b62eacc49b3776d33"
             urls=(
               "https://git.kernel.org/pub/scm/utils/dash/dash.git/snapshot/dash-0.5.13.5.tar.gz"
-              "https://repo.or.cz/dash.git/snapshot/037bbdfd330017c368caf6242f977974123239b5.tar.gz"
             )
             mkdir -p "$cache"
 
@@ -205,7 +205,7 @@ jobs:
             for url in "${urls[@]}"; do
               echo "Trying pinned dash source: $url"
               rm -f "$temporary"
-              if curl --fail --location --retry 3 --retry-all-errors --retry-delay 5 --connect-timeout 20 --max-time 240 --retry-max-time 300 --output "$temporary" "$url"; then
+              if curl --fail --location --retry 5 --retry-all-errors --retry-delay 10 --connect-timeout 60 --max-time 300 --retry-max-time 900 --output "$temporary" "$url"; then
                 if printf "%s  %s\\n" "$expected" "$temporary" | sha256sum --check; then
                   mv "$temporary" "$archive"
                   downloaded=1
