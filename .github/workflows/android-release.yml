@@ -158,7 +158,8 @@ jobs:
             exit 1
           fi
           mkdir -p release
-          cp "$apk" "release/Binary-Calculator-${GITHUB_REF_NAME}.apk"
+          safe_ref="${GITHUB_REF_NAME//\//-}"
+          cp "$apk" "release/Binary-Calculator-${safe_ref}.apk"
           cp "$apk" "release/Binary-Calculator.apk"
 
       - name: Verify release APK identity, ABI and embedded runtime assets
