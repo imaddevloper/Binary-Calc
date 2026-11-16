@@ -5,6 +5,7 @@ import type { OcrEngine } from '../src/services/ocr/index.ts';
 import { LESSON_COUNT, LESSON_IDS, LESSON_TRY } from '../src/features/learning/lessons.ts';
 import { CHALLENGE_TYPES, checkAnswer, generateChallenge } from '../src/core/challenges/index.ts';
 import { parseIPv4 } from '../src/core/ipv4/index.ts';
+import { extractIPv6Candidates, extractIPCandidates } from '../src/core/ocr/candidates.ts';
 
 const engine = (lines: string[] | Error | 'off'): OcrEngine => ({
   isSupported: () => lines !== 'off',
