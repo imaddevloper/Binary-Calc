@@ -22,7 +22,7 @@ import type { HistoryEntry } from '../../src/storage/history';
 import { canonical, display } from '../../src/utils/format';
 import { numberError } from '../../src/features/messages';
 
-const BASES: Base[] = [2, 10, 16];
+const BASES: Base[] = [2, 8, 10, 16];
 
 export default function Home() {
   const { t } = useI18n();
