@@ -122,3 +122,17 @@ test('challenges: wrong and malformed answers are told apart', () => {
   const wrong = ch.choices.find((c) => c !== ch.answer) as string;
   assert.equal(checkAnswer(ch, wrong).status, 'wrong');
 });
+
+import { extractIPv6Candidates, extractIPCandidates } from '../src/core/ocr/candidates.ts';
+
+test('OCR recognises IPv6 candidates and combines them with IPv4 candidates', () => {
+  const text = 'Router: 2001:db8::1 and loopback ::1; invalid 2001:db8::gg';
+  const ipv6 = extractIPv6Candidates(text);
+  const by = Object.fromEntries(ipv6.map((candidate) => [candidate.suggested, candidate]));
+  assert.equal(by['2001:db8::1']?.version, 'ipv6');
+  assert.equal(by['::1']?.valid, true);
+  assert.equal(Object.keys(by).length, 2);
+  const all = extractIPCandidates('Host 192.168.1.1 and 2001:db8::1');
+  assert.ok(all.some((candidate) => candidate.version === 'ipv4'));
+  assert.ok(all.some((candidate) => candidate.version === 'ipv6'));
+});

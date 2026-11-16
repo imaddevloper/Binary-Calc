@@ -11,13 +11,15 @@ import { AppText } from '../../components/Text';
 import { PrimaryButton, SecondaryButton, IconButton } from '../../components/Buttons';
 import { ErrorMessage, InfoMessage, LoadingIndicator } from '../../components/Feedback';
 import { InputField } from '../../components/InputField';
+import { Segmented } from '../../components/Segmented';
 import { ScannerFrame } from './ScannerFrame';
 import { OcrCandidateCard } from './OcrCandidateCard';
 import { useI18n } from '../../hooks/useI18n';
 import { radius, spacing } from '../../theme/spacing';
-import { isOnlineOcrConfigured, scanImageForIPv4 } from '../../services/ocr';
+import { isOnlineOcrConfigured, scanImageForIP } from '../../services/ocr';
 import type { ScanOutcome } from '../../services/ocr';
 import { parseIPv4 } from '../../core/ipv4/index.ts';
+import { parseIPv6 } from '../../core/ipv6/index.ts';
 import type { OcrCandidate } from '../../core/ocr/candidates.ts';
 import { setPendingIp } from '../ipv4/pendingIp';
 import { ipv4Error } from '../messages';
@@ -43,6 +45,7 @@ export function ScannerScreen() {
   const [candidates, setCandidates] = useState<OcrCandidate[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [text, setText] = useState('');
+  const [selectedVersion, setSelectedVersion] = useState<'ipv4' | 'ipv6'>('ipv4');
   const [message, setMessage] = useState<string | null>(null);
   const alive = useRef(true);
   const pickedOnce = useRef(false);
@@ -91,7 +94,7 @@ export function ScannerScreen() {
         // Continue with the on-device OCR engine if image preparation fails.
       }
     }
-    const res = await scanImageForIPv4(imageUri, undefined, remoteImage);
+    const res = await scanImageForIP(imageUri, undefined, remoteImage);
     if (!alive.current) return;
     setOutcome(res);
     if (res.status === 'ok') {
@@ -102,16 +105,18 @@ export function ScannerScreen() {
         res.candidates[0].valid &&
         !res.candidates[0].needsConfirmation
       ) {
-        setPendingIp(res.candidates[0].suggested);
+        setPendingIp(res.candidates[0].suggested, res.candidates[0].version);
         router.replace('/ipv4');
         return;
       }
       setCandidates(res.candidates);
       setSelected(res.candidates.length === 1 ? 0 : null);
+      setSelectedVersion(res.candidates.length === 1 ? res.candidates[0].version : 'ipv4');
       setText(res.candidates.length === 1 ? res.candidates[0].suggested : '');
     } else {
       setCandidates([]);
       setSelected(null);
+      setSelectedVersion('ipv4');
       setText('');
     }
     setStage('review');
@@ -181,13 +186,19 @@ export function ScannerScreen() {
     else setStage('camera');
   };
 
-  const parsed = text.trim() === '' ? null : parseIPv4(text);
-  const validNow = !!parsed && parsed.ok;
+  const parsed4 = selectedVersion === 'ipv4' && text.trim() !== '' ? parseIPv4(text) : null;
+  const parsed6 = selectedVersion === 'ipv6' && text.trim() !== '' ? parseIPv6(text) : null;
+  const validNow = selectedVersion === 'ipv4' ? !!parsed4?.ok : !!parsed6?.ok;
   const analyze = () => {
-    // Same strict validator as manual entry; nothing is analyzed unless it passes.
-    const p = parseIPv4(text);
-    if (!p.ok) return;
-    setPendingIp(p.normalized);
+    if (selectedVersion === 'ipv4') {
+      const parsed = parseIPv4(text);
+      if (!parsed.ok) return;
+      setPendingIp(parsed.normalized, 'ipv4');
+    } else {
+      const parsed = parseIPv6(text);
+      if (!parsed.ok) return;
+      setPendingIp(parsed.normalized, 'ipv6');
+    }
     router.replace('/ipv4');
   };
 
@@ -277,7 +288,7 @@ export function ScannerScreen() {
                 key={`${c.raw}-${i}`}
                 candidate={c}
                 selected={selected === i}
-                onSelect={() => { setSelected(i); setText(c.suggested); }}
+                onSelect={() => { setSelected(i); setSelectedVersion(c.version); setText(c.suggested); }}
               />
             ))}
           </View>
@@ -286,15 +297,24 @@ export function ScannerScreen() {
 
       <Card>
         <AppText variant="heading">{t('scan.edit')}</AppText>
+        <Segmented
+          groupLabel={t('ipv4.title')}
+          value={selectedVersion}
+          onChange={(version) => { setSelectedVersion(version); setSelected(null); }}
+          options={[
+            { value: 'ipv4', label: t('ip.mode.ipv4') },
+            { value: 'ipv6', label: t('ip.mode.ipv6') },
+          ]}
+        />
         <InputField
-          label={t('ipv4.input')}
+          label={selectedVersion === 'ipv4' ? t('ipv4.input') : t('ipv6.input')}
           value={text}
           onChangeText={(v) => { setText(v); }}
-          placeholder={t('ipv4.placeholder')}
+          placeholder={selectedVersion === 'ipv4' ? t('ipv4.placeholder') : t('ipv6.placeholder')}
           keyboardType="numbers-and-punctuation"
-          error={parsed && !parsed.ok ? ipv4Error(parsed.error, parsed.octetIndex, t) : null}
+          error={parsed4 && !parsed4.ok ? ipv4Error(parsed4.error, parsed4.octetIndex, t) : parsed6 && !parsed6.ok ? t('ipv6.err.generic') : null}
         />
-        {validNow ? <InfoMessage tone="success" message={t('scan.validOk')} /> : null}
+        {validNow ? <InfoMessage tone="success" message={selectedVersion === 'ipv4' ? t('scan.validOk') : t('ipv6.valid')} /> : null}
         <PrimaryButton label={t('scan.analyze')} onPress={analyze} disabled={!validNow} />
       </Card>
 
