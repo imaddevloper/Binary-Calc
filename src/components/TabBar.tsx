@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePathname, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from './Text';
@@ -20,6 +20,7 @@ const TABS: Record<string, { icon: IconName; label: TKey }> = {
   ipv4: { icon: 'globe', label: 'nav.ipv4' },
   learning: { icon: 'school', label: 'nav.learning' },
   history: { icon: 'time', label: 'nav.history' },
+  terminal: { icon: 'terminal', label: 'nav.terminal' },
 };
 
 /**
@@ -29,7 +30,6 @@ const TABS: Record<string, { icon: IconName; label: TKey }> = {
 export function TabBar({ state }: TabBarProps) {
   const { colors } = useTheme();
   const router = useRouter();
-  const pathname = usePathname();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
 
@@ -67,20 +67,6 @@ export function TabBar({ state }: TabBarProps) {
           </Pressable>
         );
       })}
-      <Pressable
-        accessibilityRole="tab"
-        accessibilityLabel={t('nav.terminal')}
-        accessibilityState={{ selected: pathname === '/terminal' }}
-        onPress={() => router.navigate('/terminal' as never)}
-        style={styles.item}
-      >
-        <View style={[styles.pill, pathname === '/terminal' && { backgroundColor: colors.accentSoft }]}>
-          <Icon name="terminal" size={22} color={pathname === '/terminal' ? colors.accent : colors.textSecondary} />
-        </View>
-        <AppText variant="caption" color={pathname === '/terminal' ? 'accent' : 'secondary'} numberOfLines={1} style={{ fontSize: 12, lineHeight: 16 }}>
-          {t('nav.terminal')}
-        </AppText>
-      </Pressable>
     </View>
   );
 }
