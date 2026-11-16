@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/embedded-termux-engine
+      - work/binary-calc-safe-enhancements
     paths:
       - ".github/workflows/embedded-termux-android.yml"
       - ".github/workflows/android-release.yml"
