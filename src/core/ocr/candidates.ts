@@ -50,7 +50,7 @@ export function extractIPv4Candidates(text: string): OcrCandidate[] {
 export function extractIPv6Candidates(text: string): OcrCandidate[] {
   const seen = new Set<string>();
   const out: OcrCandidate[] = [];
-  const tokens = text.split(/\\s+/).map((value) => value.replace(/^[()[\\]{}<>\\"'`,;]+/, '').replace(/[()[\\]{}<>\\"'`,;]+$/, '')).filter(Boolean);
+  const tokens = text.split(/\s+/).map((value) => value.replace(/^[([{<"'`]+/, '').replace(/[)\]}> ,"'`;,.]+$/, '')).filter(Boolean);
   for (const rawToken of tokens) {
     const token = rawToken.replace(/^(?:IPv6|IP):/i, '');
     if (!token.includes(':')) continue;
