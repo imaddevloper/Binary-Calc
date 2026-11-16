@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Card } from '../../components/Card';
@@ -26,12 +26,19 @@ function ipv6Error(code: IPv6ErrorCode, t: (key: TKey) => string): string {
   }
 }
 
-export function IPv6Panel() {
+export function IPv6Panel({ incoming }: { incoming?: { ip: string; nonce: number } | null }) {
   const { t } = useI18n();
   const toast = useToast();
   const [raw, setRaw] = useState('');
   const [analysis, setAnalysis] = useState<IPv6Analysis | null>(null);
   const [attempted, setAttempted] = useState(false);
+  useEffect(() => {
+    if (!incoming) return;
+    setRaw(incoming.ip);
+    setAttempted(true);
+    const result = analyzeIPv6(incoming.ip);
+    setAnalysis(result.ok ? result.analysis : null);
+  }, [incoming?.nonce]);
   const live = raw.trim() === '' ? null : parseIPv6(raw);
   const error = live && !live.ok
     ? ipv6Error(live.error, t)

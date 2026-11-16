@@ -9,12 +9,12 @@ import { useI18n } from '../../src/hooks/useI18n';
 export default function IPv4Screen() {
   const { t } = useI18n();
   const router = useRouter();
-  const [incoming, setIncoming] = useState<{ ip: string; nonce: number } | null>(null);
+  const [incoming, setIncoming] = useState<{ ip: string; version: 'ipv4' | 'ipv6'; nonce: number } | null>(null);
 
   // An address handed over by the scanner or History is analyzed once when this tab gets focus.
   useFocusEffect(useCallback(() => {
     const ip = takePendingIp();
-    if (ip) setIncoming({ ip, nonce: Date.now() });
+    if (ip) setIncoming({ ...ip, nonce: Date.now() });
   }, []));
 
   return (

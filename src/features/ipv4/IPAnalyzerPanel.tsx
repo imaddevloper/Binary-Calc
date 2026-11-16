@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Segmented } from '../../components/Segmented';
 import { spacing } from '../../theme/spacing';
@@ -7,7 +7,7 @@ import { IPv4Panel } from './IPv4Panel';
 import { IPv6Panel } from './IPv6Panel';
 
 interface Props {
-  incoming?: { ip: string; nonce: number } | null;
+  incoming?: { ip: string; version: 'ipv4' | 'ipv6'; nonce: number } | null;
 }
 
 type IPVersion = 'ipv4' | 'ipv6';
@@ -15,6 +15,7 @@ type IPVersion = 'ipv4' | 'ipv6';
 export function IPAnalyzerPanel({ incoming }: Props) {
   const { t } = useI18n();
   const [version, setVersion] = useState<IPVersion>('ipv4');
+  useEffect(() => { if (incoming) setVersion(incoming.version); }, [incoming?.nonce]);
   return (
     <View style={{ gap: spacing.md }}>
       <Segmented
@@ -26,7 +27,7 @@ export function IPAnalyzerPanel({ incoming }: Props) {
           { value: 'ipv6', label: t('ip.mode.ipv6') },
         ]}
       />
-      {version === 'ipv4' ? <IPv4Panel incoming={incoming} /> : <IPv6Panel />}
+      {version === 'ipv4' ? <IPv4Panel incoming={incoming?.version === 'ipv4' ? incoming : null} /> : <IPv6Panel incoming={incoming?.version === 'ipv6' ? incoming : null} />}
     </View>
   );
 }
