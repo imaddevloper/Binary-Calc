@@ -10,6 +10,7 @@ export const ar: Record<TKey, string> = {
   'nav.ipv4': 'IPv4',
   'nav.learning': 'التعلّم',
   'nav.history': 'السجل',
+  'nav.terminal': 'الطرفية',
   'nav.settings': 'الإعدادات',
   'nav.help': 'المساعدة',
 

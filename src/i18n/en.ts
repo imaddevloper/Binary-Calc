@@ -8,6 +8,7 @@ export const en = {
   'nav.ipv4': 'IPv4',
   'nav.learning': 'Learning',
   'nav.history': 'History',
+  'nav.terminal': 'Terminal',
   'nav.settings': 'Settings',
   'nav.help': 'Help',
 
