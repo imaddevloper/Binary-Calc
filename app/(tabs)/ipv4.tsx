@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AppHeader } from '../../src/components/AppHeader';
 import { Screen } from '../../src/components/Screen';
-import { IPv4Panel } from '../../src/features/ipv4/IPv4Panel';
+import { IPAnalyzerPanel } from '../../src/features/ipv4/IPAnalyzerPanel';
 import { takePendingIp } from '../../src/features/ipv4/pendingIp';
 import { useI18n } from '../../src/hooks/useI18n';
 
@@ -19,7 +19,7 @@ export default function IPv4Screen() {
 
   return (
     <Screen bottomInset={72} header={<AppHeader tools title={t('ipv4.title')} onHelp={() => router.push('/help')} />}>
-      <IPv4Panel incoming={incoming} />
+      <IPAnalyzerPanel incoming={incoming} />
     </Screen>
   );
 }
