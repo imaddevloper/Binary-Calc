@@ -12,16 +12,17 @@ import { useI18n } from '../../hooks/useI18n';
 import { spacing } from '../../theme/spacing';
 import { analyzeIPv6, parseIPv6 } from '../../core/ipv6/index.ts';
 import type { IPv6Analysis, IPv6ErrorCode } from '../../core/ipv6/index.ts';
+import type { TKey } from '../../i18n';
 
-function ipv6Error(code: IPv6ErrorCode, t: (key: never) => string): string {
+function ipv6Error(code: IPv6ErrorCode, t: (key: TKey) => string): string {
   switch (code) {
-    case 'empty': return t('ipv6.err.empty' as never);
-    case 'invalid_char': return t('ipv6.err.invalid_char' as never);
-    case 'multiple_compression': return t('ipv6.err.multiple_compression' as never);
-    case 'wrong_group_count': return t('ipv6.err.wrong_group_count' as never);
-    case 'invalid_group': return t('ipv6.err.invalid_group' as never);
-    case 'invalid_ipv4_tail': return t('ipv6.err.invalid_ipv4_tail' as never);
-    default: return t('ipv6.err.generic' as never);
+    case 'empty': return t('ipv6.err.empty');
+    case 'invalid_char': return t('ipv6.err.invalid_char');
+    case 'multiple_compression': return t('ipv6.err.multiple_compression');
+    case 'wrong_group_count': return t('ipv6.err.wrong_group_count');
+    case 'invalid_group': return t('ipv6.err.invalid_group');
+    case 'invalid_ipv4_tail': return t('ipv6.err.invalid_ipv4_tail');
+    default: return t('ipv6.err.generic');
   }
 }
 
