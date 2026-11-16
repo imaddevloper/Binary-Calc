@@ -19,7 +19,7 @@ export default function IPv4Screen() {
 
   return (
     <Screen bottomInset={72} header={<AppHeader tools title={t('ipv4.title')} onHelp={() => router.push('/help')} />}>
-      <IPAnalyzerPanel incoming={incoming} />
+      <IPAnalyzerPanel key={incoming?.nonce ?? 'manual'} incoming={incoming} />
     </Screen>
   );
 }

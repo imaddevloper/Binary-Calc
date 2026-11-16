@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Segmented } from '../../components/Segmented';
 import { spacing } from '../../theme/spacing';
@@ -14,8 +14,7 @@ type IPVersion = 'ipv4' | 'ipv6';
 
 export function IPAnalyzerPanel({ incoming }: Props) {
   const { t } = useI18n();
-  const [version, setVersion] = useState<IPVersion>('ipv4');
-  useEffect(() => { if (incoming) setVersion(incoming.version); }, [incoming?.nonce]);
+  const [version, setVersion] = useState<IPVersion>(incoming?.version ?? 'ipv4');
   return (
     <View style={{ gap: spacing.md }}>
       <Segmented
