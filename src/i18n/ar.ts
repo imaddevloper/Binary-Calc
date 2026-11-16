@@ -104,6 +104,7 @@ export const ar: Record<TKey, string> = {
   'conv.input': 'القيمة المراد تحويلها',
   'conv.from': 'أساس الإدخال',
   'conv.placeholder.2': 'مثال: 11000000',
+  'conv.placeholder.8': 'مثال: 300',
   'conv.placeholder.10': 'مثال: 192',
   'conv.placeholder.16': 'مثال: C0',
   'conv.convert': 'تحويل',

@@ -102,6 +102,7 @@ export const en = {
   'conv.input': 'Value to convert',
   'conv.from': 'Source base',
   'conv.placeholder.2': 'e.g. 11000000',
+  'conv.placeholder.8': 'e.g. 300',
   'conv.placeholder.10': 'e.g. 192',
   'conv.placeholder.16': 'e.g. C0',
   'conv.convert': 'Convert',
