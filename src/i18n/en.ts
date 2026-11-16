@@ -9,7 +9,6 @@ export const en = {
   'nav.terminal': 'Terminal',
   'nav.learning': 'Learning',
   'nav.history': 'History',
-  'nav.terminal': 'Terminal',
   'nav.settings': 'Settings',
   'nav.help': 'Help',
 
@@ -42,9 +41,11 @@ export const en = {
   'base.10': 'Base 10 — Decimal',
   'base.16': 'Base 16 — Hexadecimal',
   'base.short.2': 'Binary',
+  'base.short.8': 'Octal',
   'base.short.10': 'Decimal',
   'base.short.16': 'Hexadecimal',
   'base.chip.2': 'BIN',
+  'base.chip.8': 'OCT',
   'base.chip.10': 'DEC',
   'base.chip.16': 'HEX',
 

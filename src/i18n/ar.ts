@@ -11,7 +11,6 @@ export const ar: Record<TKey, string> = {
   'nav.terminal': 'الطرفية',
   'nav.learning': 'التعلّم',
   'nav.history': 'السجل',
-  'nav.terminal': 'الطرفية',
   'nav.settings': 'الإعدادات',
   'nav.help': 'المساعدة',
 
@@ -44,9 +43,11 @@ export const ar: Record<TKey, string> = {
   'base.10': 'الأساس 10 — عشري (Decimal)',
   'base.16': 'الأساس 16 — سداسي عشري (Hexadecimal)',
   'base.short.2': 'ثنائي',
+  'base.short.8': 'ثماني',
   'base.short.10': 'عشري',
   'base.short.16': 'سداسي عشري',
   'base.chip.2': 'BIN',
+  'base.chip.8': 'OCT',
   'base.chip.10': 'DEC',
   'base.chip.16': 'HEX',
 
