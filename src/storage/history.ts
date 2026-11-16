@@ -8,6 +8,7 @@ export interface ConvertPayload {
   input: string;
   base: Base;
   bin: string;
+  oct?: string;
   dec: string;
   hex: string;
 }

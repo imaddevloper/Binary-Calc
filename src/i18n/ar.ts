@@ -7,7 +7,8 @@ export const ar: Record<TKey, string> = {
 
   'nav.home': 'الرئيسية',
   'nav.calculator': 'الحاسبة',
-  'nav.ipv4': 'IPv4',
+  'nav.ipv4': 'IP',
+  'nav.terminal': 'الطرفية',
   'nav.learning': 'التعلّم',
   'nav.history': 'السجل',
   'nav.terminal': 'الطرفية',
@@ -39,6 +40,7 @@ export const ar: Record<TKey, string> = {
   'common.saveFailed': 'تعذّر الحفظ في السجل على هذا الجهاز.',
 
   'base.2': 'الأساس 2 — ثنائي (Binary)',
+  'base.8': 'الأساس 8 — ثماني (Octal)',
   'base.10': 'الأساس 10 — عشري (Decimal)',
   'base.16': 'الأساس 16 — سداسي عشري (Hexadecimal)',
   'base.short.2': 'ثنائي',
@@ -191,7 +193,10 @@ export const ar: Record<TKey, string> = {
   'op.mul.sym': '×',
   'op.div.sym': '÷',
 
-  'ipv4.title': 'محلّل IPv4',
+  'ipv4.title': 'محلّل IP',
+  'step.o2d.title': 'من الثماني إلى العشري',
+  'step.o2b.title': 'من الثماني إلى الثنائي',
+  'step.o2bIntro': 'كل رقم ثماني يقابله ثلاثة بتات ثنائية بالضبط.',
   'ipv4.placeholder': '192.168.1.10',
   'ipv4.input': 'عنوان IPv4',
   'ipv4.analyze': 'تحليل',
@@ -445,7 +450,7 @@ export const ar: Record<TKey, string> = {
   'set.about': 'حول التطبيق',
   'set.version': 'الإصدار',
   'set.build': 'رقم البناء',
-  'set.aboutDesc': 'يساعدك Binary Calculator على التحويل بين الثنائي والعشري والسداسي عشري، والتدرّب على العمليات الثنائية وفهم عناوين IPv4. الأدوات الأساسية تعمل دون إنترنت، ويتوفر OCR عبر الإنترنت عند الاتصال.',
+  'set.aboutDesc': 'يساعدك Binary Calculator على التحويل بين الثنائي والثماني والعشري والسداسي عشري، وإجراء العمليات الثنائية وتحليل عناوين IP. الأدوات الأساسية تعمل دون إنترنت، ويتوفر OCR عبر الإنترنت عند الاتصال.',
   'set.libs': 'مبني ببرمجيات مفتوحة المصدر: Expo وReact Native وReact Native Reanimated وExpo Router ومكتبات أخرى.',
   'set.helpRow': 'المساعدة',
   'set.helpRowDesc': 'الرموز الصالحة وصيغة IPv4 ونصائح المسح والأذونات',

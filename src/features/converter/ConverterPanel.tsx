@@ -21,7 +21,7 @@ import { addHistory } from '../../storage/history';
 import { canonical, display } from '../../utils/format';
 import { numberError } from '../messages';
 
-const BASES: Base[] = [2, 10, 16];
+const BASES: Base[] = [2, 8, 10, 16];
 
 interface Props {
   initialValue?: string;
@@ -53,7 +53,7 @@ export function ConverterPanel({ initialValue = '', initialBase, onConverted }: 
     if (!parsed || !parsed.ok) return;
     setDone(parsed);
     const reps = allRepresentations(parsed.value);
-    const ok = await addHistory('convert', { input: parsed.normalized, base, bin: reps[2], dec: reps[10], hex: reps[16] });
+    const ok = await addHistory('convert', { input: parsed.normalized, base, bin: reps[2], oct: reps[8], dec: reps[10], hex: reps[16] });
     if (!ok) toast.show(t('common.saveFailed'), 'error');
     else onConverted?.();
   };

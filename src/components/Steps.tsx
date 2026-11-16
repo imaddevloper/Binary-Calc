@@ -9,7 +9,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../hooks/useI18n';
 import {
   binaryToDecimalSteps, binaryToHexSteps, decimalToBinarySteps, decimalToHexSteps,
-  hexToBinarySteps, hexToDecimalSteps,
+  hexToBinarySteps, hexToDecimalSteps, octalToDecimalSteps, octalToBinarySteps,
 } from '../core/number-systems/index.ts';
 import type { Base, PositionalSteps } from '../core/number-systems/index.ts';
 
@@ -40,7 +40,7 @@ function Line({ children }: { children: string }) {
   return <AppText variant="body">{children}</AppText>;
 }
 
-function PositionalBlock({ steps, radix, digitsLen }: { steps: PositionalSteps; radix: 2 | 16; digitsLen: number }) {
+function PositionalBlock({ steps, radix, digitsLen }: { steps: PositionalSteps; radix: 2 | 8 | 16; digitsLen: number }) {
   const { tm } = useI18n();
   const terms = steps.terms.filter((x) => digitsLen <= 16 || x.contribution !== 0n);
   return (
@@ -102,6 +102,24 @@ export function ConversionSteps({ value, from, normalized }: { value: bigint; fr
           ) : null}
           <Line>{t('step.readUp')}</Line>
           <Mono large color="accent">{d2h.result}</Mono>
+        </Collapsible>
+      </View>
+    );
+  }
+
+  if (from === 8) {
+    const o2d = octalToDecimalSteps(digits);
+    const o2b = octalToBinarySteps(digits);
+    return (
+      <View style={styles.stack}>
+        {neg}
+        <Collapsible title={t('step.o2d.title')} initiallyOpen>
+          <PositionalBlock steps={o2d} radix={8} digitsLen={digits.length} />
+        </Collapsible>
+        <Collapsible title={t('step.o2b.title')}>
+          <Line>{t('step.o2bIntro')}</Line>
+          {o2b.groups.map((g, i) => <Mono key={i}>{`${g.octal} = ${g.bits}`}</Mono>)}
+          <Mono large color="accent">{o2b.result}</Mono>
         </Collapsible>
       </View>
     );

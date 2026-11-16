@@ -5,7 +5,8 @@ export const en = {
 
   'nav.home': 'Home',
   'nav.calculator': 'Calculator',
-  'nav.ipv4': 'IPv4',
+  'nav.ipv4': 'IP',
+  'nav.terminal': 'Terminal',
   'nav.learning': 'Learning',
   'nav.history': 'History',
   'nav.terminal': 'Terminal',
@@ -37,6 +38,7 @@ export const en = {
   'common.saveFailed': 'Could not save to history on this device.',
 
   'base.2': 'Base 2 — Binary',
+  'base.8': 'Base 8 — Octal',
   'base.10': 'Base 10 — Decimal',
   'base.16': 'Base 16 — Hexadecimal',
   'base.short.2': 'Binary',
@@ -189,7 +191,10 @@ export const en = {
   'op.mul.sym': '×',
   'op.div.sym': '÷',
 
-  'ipv4.title': 'IPv4 Analyzer',
+  'ipv4.title': 'IP Analyzer',
+  'step.o2d.title': 'Octal to Decimal',
+  'step.o2b.title': 'Octal to Binary',
+  'step.o2bIntro': 'Each octal digit maps to exactly three binary bits.',
   'ipv4.placeholder': '192.168.1.10',
   'ipv4.input': 'IPv4 address',
   'ipv4.analyze': 'Analyze',
@@ -443,7 +448,7 @@ export const en = {
   'set.about': 'About',
   'set.version': 'Version',
   'set.build': 'Build',
-  'set.aboutDesc': 'Binary Calculator helps you convert between binary, decimal and hexadecimal, practise binary arithmetic, and understand IPv4 addresses. Core tools work offline; online OCR is available when connected.',
+  'set.aboutDesc': 'Binary Calculator converts between binary, octal, decimal and hexadecimal, supports binary arithmetic, and analyzes IP addresses. Core tools work offline; online OCR is available when connected.',
   'set.libs': 'Built with open-source software: Expo, React Native, React Native Reanimated, Expo Router, and other libraries.',
   'set.helpRow': 'Help',
   'set.helpRowDesc': 'Valid characters, IPv4 format, OCR tips, permissions',
