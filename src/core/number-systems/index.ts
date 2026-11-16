@@ -11,12 +11,13 @@
  *  - Maximum MAX_DIGITS digits (after normalization).
  */
 
-export type Base = 2 | 10 | 16;
+export type Base = 2 | 8 | 10 | 16;
 export const MAX_DIGITS = 256;
 
 export type ParseErrorCode =
   | 'empty'
   | 'invalid_binary'
+  | 'invalid_octal'
   | 'invalid_decimal'
   | 'invalid_hex'
   | 'fraction_not_supported'
@@ -28,12 +29,14 @@ export type ParseResult =
 
 const DIGIT_RE: Record<Base, RegExp> = {
   2: /^[01]+$/,
+  8: /^[0-7]+$/,
   10: /^[0-9]+$/,
   16: /^[0-9A-Fa-f]+$/,
 };
 
 const INVALID: Record<Base, ParseErrorCode> = {
   2: 'invalid_binary',
+  8: 'invalid_octal',
   10: 'invalid_decimal',
   16: 'invalid_hex',
 };
@@ -50,6 +53,7 @@ export function parseIntegerInput(raw: string, base: Base): ParseResult {
   }
 
   if (base === 16 && /^0x/i.test(s)) s = s.slice(2);
+  if (base === 8 && /^0o/i.test(s)) s = s.slice(2);
   if (base === 2 && /^0b/i.test(s)) s = s.slice(2);
   if (base !== 10) s = s.replace(/[ _]/g, '');
   if (s === '') return { ok: false, error: 'empty' };
@@ -66,7 +70,7 @@ export function parseIntegerInput(raw: string, base: Base): ParseResult {
   if (!DIGIT_RE[base].test(s)) return { ok: false, error: INVALID[base] };
   if (s.length > MAX_DIGITS) return { ok: false, error: 'too_long' };
 
-  const magnitude = base === 2 ? BigInt('0b' + s) : base === 16 ? BigInt('0x' + s) : BigInt(s);
+  const magnitude = base === 2 ? BigInt('0b' + s) : base === 8 ? BigInt('0o' + s) : base === 16 ? BigInt('0x' + s) : BigInt(s);
   const isZero = magnitude === 0n;
   const digits = s.toUpperCase().replace(/^0+(?=.)/, '');
   return {
@@ -114,7 +118,7 @@ export function convertBetweenBases(raw: string, from: Base, to: Base): ConvertR
 
 /** All three representations of one value. */
 export function allRepresentations(value: bigint): Record<Base, string> {
-  return { 2: formatInteger(value, 2), 10: formatInteger(value, 10), 16: formatInteger(value, 16) };
+  return { 2: formatInteger(value, 2), 8: formatInteger(value, 8), 10: formatInteger(value, 10), 16: formatInteger(value, 16) };
 }
 
 // ---------------------------------------------------------------- steps
@@ -136,7 +140,7 @@ export interface DivisionRow {
 }
 
 /** Repeated division of a non-negative value by 2 or 16. Rows are in the order performed. */
-export function divisionSteps(value: bigint, base: 2 | 16): DivisionRow[] {
+export function divisionSteps(value: bigint, base: 2 | 8 | 16): DivisionRow[] {
   if (value < 0n) throw new RangeError('divisionSteps expects a non-negative value');
   const b = BigInt(base);
   if (value === 0n) return [{ dividend: 0n, divisor: base, quotient: 0n, remainder: 0, digit: '0' }];
@@ -238,7 +242,7 @@ export interface PositionalSteps {
   sumExpression: string;
 }
 
-function positional(digits: string, radix: 2 | 16): PositionalSteps {
+function positional(digits: string, radix: 2 | 8 | 16): PositionalSteps {
   const n = digits.length;
   const terms: PositionalTerm[] = [];
   let total = 0n;
@@ -314,6 +318,41 @@ export function hexToBinarySteps(hex: string): HexToBinarySteps {
     bits: parseInt(c, 16).toString(2).padStart(4, '0'),
   }));
   return { groups, result: groups.map((g) => g.bits).join('').replace(/^0+(?=.)/, '') };
+}
+
+
+/** Positional expansion of a validated octal integer into decimal. */
+export function octalToDecimalSteps(octal: string): PositionalSteps {
+  if (!/^[0-7]+$/.test(octal)) throw new RangeError('octalToDecimalSteps expects 0-7 digits');
+  return positional(octal, 8);
+}
+
+/** Repeated division table for converting a decimal integer to octal. */
+export function decimalToOctalSteps(value: bigint): DecimalToBaseSteps {
+  const negative = value < 0n;
+  const magnitude = negative ? -value : value;
+  const rows = divisionSteps(magnitude, 8);
+  return { magnitude, negative, rows, result: rows.map((r) => r.digit).reverse().join('') };
+}
+
+/** Octal digits map to exactly three bits each. */
+export function octalToBinarySteps(octal: string): { groups: { octal: string; bits: string }[]; result: string } {
+  if (!/^[0-7]+$/.test(octal)) throw new RangeError('octalToBinarySteps expects 0-7 digits');
+  const groups = octal.split('').map((digit) => ({ octal: digit, bits: Number(digit).toString(2).padStart(3, '0') }));
+  return { groups, result: groups.map((group) => group.bits).join('').replace(/^0+(?=.)/, '') };
+}
+
+/** Binary digits are grouped in threes from the right for octal conversion. */
+export function binaryToOctalSteps(binary: string): { paddedBy: number; groups: { bits: string; octal: string }[]; result: string } {
+  if (!/^[01]+$/.test(binary)) throw new RangeError('binaryToOctalSteps expects 0/1 digits');
+  const paddedBy = (3 - (binary.length % 3)) % 3;
+  const padded = '0'.repeat(paddedBy) + binary;
+  const groups: { bits: string; octal: string }[] = [];
+  for (let i = 0; i < padded.length; i += 3) {
+    const bits = padded.slice(i, i + 3);
+    groups.push({ bits, octal: String(parseInt(bits, 2)) });
+  }
+  return { paddedBy, groups, result: groups.map((group) => group.octal).join('').replace(/^0+(?=.)/, '') };
 }
 
 export interface BitCell { position: number; place: bigint; bit: 0 | 1 }
