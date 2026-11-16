@@ -123,7 +123,6 @@ test('challenges: wrong and malformed answers are told apart', () => {
   assert.equal(checkAnswer(ch, wrong).status, 'wrong');
 });
 
-import { extractIPv6Candidates, extractIPCandidates } from '../src/core/ocr/candidates.ts';
 
 test('OCR recognises IPv6 candidates and combines them with IPv4 candidates', () => {
   const text = 'Router: 2001:db8::1 and loopback ::1; invalid 2001:db8::gg';

@@ -181,7 +181,7 @@ export function ScannerScreen() {
   };
 
   const retake = () => {
-    setUri(null); setOutcome(null); setCandidates([]); setSelected(null); setText(''); setMessage(null);
+    setUri(null); setOutcome(null); setCandidates([]); setSelected(null); setText(''); setSelectedVersion('ipv4'); setMessage(null);
     if (fromGallery || !permission?.granted) void pickFromGallery();
     else setStage('camera');
   };
