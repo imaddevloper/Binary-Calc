@@ -131,7 +131,7 @@ export function TerminalScreen() {
     >
       <View style={styles.content}>
         <View style={styles.intro}>
-          <AppText variant="body" color="secondary">{t('terminal.description')}</AppText>
+          {status !== 'ready' ? <AppText variant="body" color="secondary">{t('terminal.description')}</AppText> : null}
           {status === 'ready' ? (
             <View style={[styles.status, { backgroundColor: colors.accentSoft }]}>
               <View style={[styles.dot, { backgroundColor: colors.success }]} />
@@ -153,14 +153,11 @@ export function TerminalScreen() {
             </View>
             <TermuxNativeView
               style={styles.terminal}
-              fontSize={14}
+              fontSize={15}
               autoStart
               accessible
               accessibilityLabel="Embedded Termux terminal"
             />
-            <View style={styles.terminalFooter}>
-              <AppText variant="caption" color="secondary">{t('terminal.shellHint')}</AppText>
-            </View>
           </View>
         ) : (
           <View style={styles.center}>
@@ -220,7 +217,6 @@ export function TerminalScreen() {
                 </Pressable>
               ))}
             </ScrollView>
-            <AppText variant="caption" color="secondary" style={styles.tip}>{t('terminal.firstRun')}</AppText>
           </>
         ) : null}
         {Platform.OS === 'android' ? (
@@ -256,11 +252,11 @@ const styles = StyleSheet.create({
   dot: { width: 7, height: 7, borderRadius: radius.pill },
   center: { flex: 1, justifyContent: 'center' },
   panel: { borderWidth: 1, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md, alignItems: 'stretch' },
-  terminalWrap: { flex: 1, minHeight: 260, borderRadius: radius.lg, borderWidth: 1, borderColor: '#292934', overflow: 'hidden', backgroundColor: '#0B0B0F' },
+  terminalWrap: { flex: 1, minHeight: 0, borderRadius: radius.lg, borderWidth: 1, borderColor: '#292934', overflow: 'hidden', backgroundColor: '#0B0B0F' },
   terminalHeader: { height: 42, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#17171F', borderBottomWidth: 1, borderBottomColor: '#292934' },
   trafficLights: { width: 38, flexDirection: 'row', alignItems: 'center', gap: 5 },
   trafficLight: { width: 8, height: 8, borderRadius: 4 },
-  terminal: { flex: 1, width: '100%', backgroundColor: '#0B0B0F' },
+  terminal: { flex: 1, minHeight: 0, width: '100%', backgroundColor: '#0B0B0F' },
   terminalFooter: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: '#292934', backgroundColor: '#14141A' },
   keyBar: { flexDirection: 'row', gap: spacing.xs, paddingVertical: spacing.xs },
   keyButton: { minWidth: 42, height: 36, paddingHorizontal: spacing.sm, borderWidth: 1, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },

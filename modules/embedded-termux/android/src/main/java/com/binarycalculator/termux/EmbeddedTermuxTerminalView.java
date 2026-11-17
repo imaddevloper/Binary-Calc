@@ -130,13 +130,12 @@ final class EmbeddedTermuxTerminalView extends FrameLayout implements TerminalSe
             boolean useSystemLinker = Build.VERSION.SDK_INT >= 29;
             String linkerPath = "/system/bin/" + ("aarch64".equals(architecture) ? "linker64" : "linker");
             String executable = useSystemLinker ? linkerPath : bash.getAbsolutePath();
-            // TerminalSession's JNI passes this array directly to execvp() as argv;
-            // it does not prepend the executable path. The Android linker expects
-            // argv[0] to be its own absolute path and argv[1] to be the Bash binary.
-            // Without argv[0], the linker mistakes "-l" for the executable to load.
-            String[] arguments = useSystemLinker
-                ? new String[] { linkerPath, bash.getAbsolutePath(), "-l" }
-                : new String[] { bash.getAbsolutePath(), "-l" };
+            // TerminalSession JNI calls execvp(cmd, argv). The executable path
+            // is supplied separately as cmd, so argv must contain only Bash arguments:
+            // argv[0] is Bash, followed by the login-shell flag. Including linkerPath
+            // here shifts the arguments and makes Android's linker treat "-l" as a
+            // second executable path (expected absolute path: "-l").
+            String[] arguments = new String[] { bash.getAbsolutePath(), "-l" };
             session = new TerminalSession(
                 executable,
                 home.getAbsolutePath(),
