@@ -2,7 +2,7 @@
  * OCR adapter. Online vision OCR is preferred when configured; on-device ML Kit
  * remains the privacy-friendly fallback when the network/service is unavailable.
  */
-import { extractIPv4Candidates } from '../../core/ocr/candidates.ts';
+import { extractIPCandidates } from '../../core/ocr/candidates.ts';
 import type { OcrCandidate } from '../../core/ocr/candidates.ts';
 
 const OCR_API_URL = 'https://binary-calc-ocr-imaddevloper.vercel.app/api/ocr';
@@ -77,7 +77,7 @@ async function recognizeOnline(image: RemoteOcrImage): Promise<OcrCandidate[] | 
     const addresses = (payload as { addresses?: unknown }).addresses;
     if (!Array.isArray(addresses) || !addresses.every((item) => typeof item === 'string')) return null;
 
-    const candidates = extractIPv4Candidates(addresses.join('\n'));
+    const candidates = extractIPCandidates(addresses.join('\n'));
     return candidates.length > 0 ? candidates : null;
   } catch {
     return null;
@@ -85,7 +85,7 @@ async function recognizeOnline(image: RemoteOcrImage): Promise<OcrCandidate[] | 
 }
 
 /** Online OCR is attempted first; ML Kit is the offline fallback. */
-export async function scanImageForIPv4(
+export async function scanImageForIP(
   uri: string,
   engine: OcrEngine = ocrEngine,
   remoteImage?: RemoteOcrImage,
@@ -100,9 +100,12 @@ export async function scanImageForIPv4(
     const lines = await engine.recognize(uri);
     const text = lines.join('\n').trim();
     if (text === '') return { status: 'no_text' };
-    const candidates = extractIPv4Candidates(text);
+    const candidates = extractIPCandidates(text);
     return candidates.length === 0 ? { status: 'no_address' } : { status: 'ok', candidates };
   } catch (e) {
     return e instanceof OcrUnavailableError ? { status: 'unavailable' } : { status: 'failed' };
   }
 }
+
+/** Backwards-compatible alias for existing callers. */
+export const scanImageForIPv4 = scanImageForIP;

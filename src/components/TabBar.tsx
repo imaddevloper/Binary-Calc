@@ -20,6 +20,7 @@ const TABS: Record<string, { icon: IconName; label: TKey }> = {
   ipv4: { icon: 'globe', label: 'nav.ipv4' },
   learning: { icon: 'school', label: 'nav.learning' },
   history: { icon: 'time', label: 'nav.history' },
+  terminal: { icon: 'terminal', label: 'nav.terminal' },
 };
 
 /**

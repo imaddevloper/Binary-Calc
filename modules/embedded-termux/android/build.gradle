@@ -1,0 +1,48 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'com.binarycalculator.termux'
+    compileSdkVersion rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.facebook.react:react-android'
+    // JitPack publishes these Android library variants with the "release"
+    // classifier. Select the exact published AAR for both modules; otherwise
+    // Gradle requests an unclassified file that the successful CI preflight
+    // has already shown is not the published artifact.
+    implementation('com.termux.termux-app:terminal-view:8629e632fc') {
+        artifact {
+            name = 'terminal-view'
+            type = 'aar'
+            extension = 'aar'
+            classifier = 'release'
+        }
+        // terminal-view's POM also declares terminal-emulator. Exclude that
+        // unclassified transitive artifact and add its release AAR explicitly.
+        exclude group: 'com.termux.termux-app', module: 'terminal-emulator'
+    }
+    implementation('com.termux.termux-app:terminal-emulator:8629e632fc') {
+        artifact {
+            name = 'terminal-emulator'
+            type = 'aar'
+            extension = 'aar'
+            classifier = 'release'
+        }
+    }
+    // Required by Termux library consumers to avoid duplicate Guava ListenableFuture classes.
+    implementation 'com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava'
+}

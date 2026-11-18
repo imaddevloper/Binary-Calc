@@ -5,6 +5,7 @@ import type { OcrEngine } from '../src/services/ocr/index.ts';
 import { LESSON_COUNT, LESSON_IDS, LESSON_TRY } from '../src/features/learning/lessons.ts';
 import { CHALLENGE_TYPES, checkAnswer, generateChallenge } from '../src/core/challenges/index.ts';
 import { parseIPv4 } from '../src/core/ipv4/index.ts';
+import { extractIPv6Candidates, extractIPCandidates } from '../src/core/ocr/candidates.ts';
 
 const engine = (lines: string[] | Error | 'off'): OcrEngine => ({
   isSupported: () => lines !== 'off',
@@ -121,4 +122,17 @@ test('challenges: wrong and malformed answers are told apart', () => {
   assert.equal(checkAnswer(ch, '').status, 'invalid_format');
   const wrong = ch.choices.find((c) => c !== ch.answer) as string;
   assert.equal(checkAnswer(ch, wrong).status, 'wrong');
+});
+
+
+test('OCR recognises IPv6 candidates and combines them with IPv4 candidates', () => {
+  const text = 'Router: 2001:db8::1 and loopback ::1; invalid 2001:db8::gg';
+  const ipv6 = extractIPv6Candidates(text);
+  const by = Object.fromEntries(ipv6.map((candidate) => [candidate.suggested, candidate]));
+  assert.equal(by['2001:db8::1']?.version, 'ipv6');
+  assert.equal(by['::1']?.valid, true);
+  assert.equal(Object.keys(by).length, 2);
+  const all = extractIPCandidates('Host 192.168.1.1 and 2001:db8::1');
+  assert.ok(all.some((candidate) => candidate.version === 'ipv4'));
+  assert.ok(all.some((candidate) => candidate.version === 'ipv6'));
 });

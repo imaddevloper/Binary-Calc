@@ -22,7 +22,7 @@ import type { HistoryEntry } from '../../src/storage/history';
 import { canonical, display } from '../../src/utils/format';
 import { numberError } from '../../src/features/messages';
 
-const BASES: Base[] = [2, 10, 16];
+const BASES: Base[] = [2, 8, 10, 16];
 
 export default function Home() {
   const { t } = useI18n();
@@ -67,6 +67,7 @@ export default function Home() {
         <FeatureCard icon="camera" title={t('home.f.scan')} description={t('home.f.scanDesc')} onPress={() => router.push('/scanner')} />
         <FeatureCard icon="school" title={t('home.f.learn')} description={t('home.f.learnDesc')} onPress={() => go('/learning')} />
         <FeatureCard icon="time" title={t('home.f.history')} description={t('home.f.historyDesc')} onPress={() => go('/history')} />
+        <FeatureCard icon="terminal" title={t('home.f.terminal')} description={t('home.f.terminalDesc')} onPress={() => go('/terminal')} />
       </View>
 
       <Card>

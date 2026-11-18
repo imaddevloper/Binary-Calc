@@ -116,6 +116,11 @@ export default function SettingsScreen() {
         />
       </SettingsSection>
 
+
+      <SettingsSection title={t('remote.title')}>
+        <ActionRow icon="shield-checkmark" label={t('remote.heading')} description={t('remote.intro')} onPress={() => router.push('/remote')} />
+      </SettingsSection>
+
       <SettingsSection title={t('set.calc')}>
         <AppText variant="subheading">{t('set.defaultBase')}</AppText>
         <Segmented<Base>

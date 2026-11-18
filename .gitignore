@@ -1,11 +1,36 @@
+# JavaScript / Expo
 node_modules/
 .expo/
 dist/
 web-build/
+
+# Generated native projects and build outputs
 android/
 ios/
+.gradle/
+.kotlin/
+build/
+captures/
+*.apk
+*.aab
+*.hprof
+
+# Android Studio / local SDK configuration
+.idea/
+*.iml
+local.properties
+
+# Local environment and signing credentials
 .env
 .env.*
 !.env.example
+*.jks
+*.keystore
+
+# Logs, temporary files and OS metadata
 *.log
+*.tmp
+*.bak
+*.swp
 .DS_Store
+Thumbs.db

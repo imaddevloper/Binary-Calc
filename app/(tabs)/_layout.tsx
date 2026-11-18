@@ -15,6 +15,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="ipv4" />
       <Tabs.Screen name="learning" />
       <Tabs.Screen name="history" />
+      <Tabs.Screen name="terminal" />
     </Tabs>
   );
 }

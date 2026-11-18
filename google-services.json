@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "748305635980",
+    "project_id": "binary-calc01",
+    "storage_bucket": "binary-calc01.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:748305635980:android:a7c294eca2639fbfcab9a9",
+        "android_client_info": {
+          "package_name": "com.binarycalculator.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCu3X2DJfL4l6c5vTID4Z2qWOeCYqp_5E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -8,8 +8,8 @@ import { spacing } from '../theme/spacing';
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../hooks/useI18n';
 import {
-  binaryToDecimalSteps, binaryToHexSteps, decimalToBinarySteps, decimalToHexSteps,
-  hexToBinarySteps, hexToDecimalSteps,
+  binaryToDecimalSteps, binaryToHexSteps, binaryToOctalSteps, decimalToBinarySteps, decimalToHexSteps, decimalToOctalSteps,
+  hexToBinarySteps, hexToDecimalSteps, octalToDecimalSteps, octalToBinarySteps,
 } from '../core/number-systems/index.ts';
 import type { Base, PositionalSteps } from '../core/number-systems/index.ts';
 
@@ -40,7 +40,7 @@ function Line({ children }: { children: string }) {
   return <AppText variant="body">{children}</AppText>;
 }
 
-function PositionalBlock({ steps, radix, digitsLen }: { steps: PositionalSteps; radix: 2 | 16; digitsLen: number }) {
+function PositionalBlock({ steps, radix, digitsLen }: { steps: PositionalSteps; radix: 2 | 8 | 16; digitsLen: number }) {
   const { tm } = useI18n();
   const terms = steps.terms.filter((x) => digitsLen <= 16 || x.contribution !== 0n);
   return (
@@ -78,6 +78,7 @@ export function ConversionSteps({ value, from, normalized }: { value: bigint; fr
   if (from === 10) {
     const d2b = decimalToBinarySteps(value);
     const d2h = decimalToHexSteps(value);
+    const d2o = decimalToOctalSteps(value);
     return (
       <View style={styles.stack}>
         {neg}
@@ -103,6 +104,40 @@ export function ConversionSteps({ value, from, normalized }: { value: bigint; fr
           <Line>{t('step.readUp')}</Line>
           <Mono large color="accent">{d2h.result}</Mono>
         </Collapsible>
+        <Collapsible title={t('step.d2o.title')}>
+          <Line>{tm('step.divRepeat', { base: 8 })}</Line>
+          {d2o.rows.map((r, i) => (
+            <AppText key={i} variant="body">{tm('step.divRow', { dividend: r.dividend.toString(), divisor: r.divisor, quotient: r.quotient.toString(), remainder: r.remainder })}</AppText>
+          ))}
+          <Line>{t('step.readUp')}</Line>
+          <Mono large color="accent">{d2o.result}</Mono>
+        </Collapsible>
+      </View>
+    );
+  }
+
+  if (from === 8) {
+    const o2d = octalToDecimalSteps(digits);
+    const o2b = octalToBinarySteps(digits);
+    const o2h = binaryToHexSteps(o2b.result);
+    return (
+      <View style={styles.stack}>
+        {neg}
+        <Collapsible title={t('step.o2d.title')} initiallyOpen>
+          <PositionalBlock steps={o2d} radix={8} digitsLen={digits.length} />
+        </Collapsible>
+        <Collapsible title={t('step.o2b.title')}>
+          <Line>{t('step.o2bIntro')}</Line>
+          {o2b.groups.map((g, i) => <Mono key={i}>{`${g.octal} = ${g.bits}`}</Mono>)}
+          <Mono large color="accent">{o2b.result}</Mono>
+        </Collapsible>
+        <Collapsible title={t('step.o2h.title')}>
+          <Line>{t('step.o2bIntro')}</Line>
+          {o2b.groups.map((g, i) => <Mono key={i}>{`${g.octal} = ${g.bits}`}</Mono>)}
+          <Line>{t('step.group4')}</Line>
+          {o2h.groups.map((g, i) => <Mono key={i}>{`${g.bits} = ${g.hex}`}</Mono>)}
+          <Mono large color="accent">{o2h.result}</Mono>
+        </Collapsible>
       </View>
     );
   }
@@ -110,6 +145,7 @@ export function ConversionSteps({ value, from, normalized }: { value: bigint; fr
   if (from === 2) {
     const b2d = binaryToDecimalSteps(digits);
     const b2h = binaryToHexSteps(digits);
+    const b2o = binaryToOctalSteps(digits);
     return (
       <View style={styles.stack}>
         {neg}
@@ -122,12 +158,19 @@ export function ConversionSteps({ value, from, normalized }: { value: bigint; fr
           {b2h.groups.map((g, i) => <Mono key={i}>{`${g.bits} = ${g.hex}`}</Mono>)}
           <Mono large color="accent">{b2h.result}</Mono>
         </Collapsible>
+        <Collapsible title={t('step.b2o.title')}>
+          <Line>{t('step.group3')}</Line>
+          <Line>{b2o.paddedBy > 0 ? tm('step.pad', { n: b2o.paddedBy }) : t('step.noPad')}</Line>
+          {b2o.groups.map((g, i) => <Mono key={i}>{`${g.bits} = ${g.octal}`}</Mono>)}
+          <Mono large color="accent">{b2o.result}</Mono>
+        </Collapsible>
       </View>
     );
   }
 
   const h2d = hexToDecimalSteps(digits);
   const h2b = hexToBinarySteps(digits);
+  const h2o = binaryToOctalSteps(h2b.result);
   return (
     <View style={styles.stack}>
       {neg}
@@ -140,6 +183,13 @@ export function ConversionSteps({ value, from, normalized }: { value: bigint; fr
         {h2b.groups.map((g, i) => <Mono key={i}>{`${g.hex} = ${g.bits}`}</Mono>)}
         <Line>{t('step.leadingZeros')}</Line>
         <Mono large color="accent">{h2b.result}</Mono>
+      </Collapsible>
+      <Collapsible title={t('step.h2o.title')}>
+        <Line>{t('step.h2bIntro')}</Line>
+        {h2b.groups.map((g, i) => <Mono key={i}>{`${g.hex} = ${g.bits}`}</Mono>)}
+        <Line>{t('step.group3')}</Line>
+        {h2o.groups.map((g, i) => <Mono key={i}>{`${g.bits} = ${g.octal}`}</Mono>)}
+        <Mono large color="accent">{h2o.result}</Mono>
       </Collapsible>
     </View>
   );
