@@ -283,6 +283,19 @@ jobs:
               fi
 
               mapfile -t ips < <(printf "%s" "$dns_json" | jq -r '\''.Answer[]? | select(.type == 1) | .data'\'' | sort -u)
+            # Hosted builders can receive a successful DoH response without an
+            # A answer. Retain a recently verified Codeberg origin IP as fallback.
+            # --resolve keeps the hostname for TLS SNI/certificate checks, and
+            # the pinned upstream SHA-256 below remains mandatory.
+            if [[ "${#ips[@]}" -eq 0 ]]; then
+              echo "::warning::DoH returned no IPv4 A records (DNS status: $(printf "%s" "$dns_json" | jq -r '.Status // "unknown"')); using the verified Codeberg origin fallback."
+            fi
+            ips+=("217.197.84.140")
+            mapfile -t ips < <(printf "%s\\n" "${ips[@]}" | sed '/^$/d' | sort -u)
+            if [[ "${#ips[@]}" -eq 0 ]]; then
+              echo "::error::No Codeberg IPv4 candidates were available."
+              exit 1
+            fi
               for ip in "${ips[@]}"; do
                 echo "Downloading official foot 1.28.0 archive via Codeberg IP $ip."
                 rm -f "$temporary"
