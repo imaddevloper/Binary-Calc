@@ -291,7 +291,7 @@ jobs:
                 echo "::warning::DoH returned no IPv4 A records (DNS status: $(printf "%s" "$dns_json" | jq -r '.Status // "unknown"')); using the verified Codeberg origin fallback."
               fi
               ips+=("217.197.84.140")
-            mapfile -t ips < <(printf "%s\\n" "${ips[@]}" | sed '/^$/d' | sort -u)
+              mapfile -t ips < <(printf "%s\n" "${ips[@]}" | sed '/^$/d' | sort -u)
               if [[ "${#ips[@]}" -eq 0 ]]; then
                 echo "::error::No Codeberg IPv4 candidates were available."
                 exit 1
