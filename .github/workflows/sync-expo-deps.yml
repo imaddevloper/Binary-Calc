@@ -1,0 +1,100 @@
+name: Sync Expo SDK 58 dependency lock
+
+on:
+  push:
+    branches:
+      - work/binary-calc-safe-enhancements
+    paths:
+      - ".github/workflows/sync-expo-deps.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install the currently locked dependency tree
+        run: npm ci
+
+      - name: Update only Expo-validated SDK 58 package versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp package.json /tmp/package-before.json
+          npx expo install --fix
+          npm run check-deps
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          before = json.loads(Path("/tmp/package-before.json").read_text())
+          after = json.loads(Path("package.json").read_text())
+          allowed = {
+              "expo",
+              "expo-dev-client",
+              "expo-router",
+              "expo-sqlite",
+              "expo-file-system",
+          }
+          changed = set()
+          for section in ("dependencies", "devDependencies"):
+              old = before.get(section, {})
+              new = after.get(section, {})
+              for name in set(old) | set(new):
+                  if old.get(name) != new.get(name):
+                      changed.add(name)
+                      if name not in allowed or section != "dependencies":
+                          raise SystemExit(
+                              f"Unexpected package.json change: {section}.{name}: "
+                              f"{old.get(name)!r} -> {new.get(name)!r}"
+                          )
+          if changed != allowed:
+              raise SystemExit(
+                  f"Expected exactly these five Expo dependencies to change; got {sorted(changed)}"
+              )
+          expected = {
+              "expo": "~58.0.26",
+              "expo-dev-client": "~58.0.21",
+              "expo-router": "~58.0.32",
+              "expo-sqlite": "~58.0.18",
+              "expo-file-system": "~58.0.14",
+          }
+          for name, version in expected.items():
+              actual = after["dependencies"].get(name)
+              if actual != version:
+                  raise SystemExit(
+                      f"Unexpected Expo-compatible version for {name}: {actual!r}; "
+                      f"expected {version!r}"
+                  )
+          print("Verified: only the five requested Expo SDK 58 dependency ranges changed.")
+          PY
+
+      - name: Validate lockfile and create dependency-only commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run check-deps
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "Expo dependencies and lockfile are already synchronized."
+            exit 0
+          fi
+          git commit -m "chore(deps): align Expo SDK 58 patch versions"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
