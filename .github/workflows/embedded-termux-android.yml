@@ -284,7 +284,7 @@ jobs:
 
               # Parse the JSON with Python, which is part of the package-builder
               # image. Do not rely on jq being installed in that container.
-              ip_lines="$(printf "%s" "$dns_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print('\\n'.join(x['data'] for x in d.get('Answer',[]) if x.get('type') == 1))")" || {
+              ip_lines="$(printf "%s" "$dns_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(chr(10).join(x['data'] for x in d.get('Answer',[]) if x.get('type') == 1))")" || {
                 echo "::warning::Could not parse $resolver DNS JSON; trying the next resolver."
                 continue
               }
