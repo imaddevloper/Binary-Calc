@@ -29,12 +29,22 @@ jobs:
       - name: Install the currently locked dependency tree
         run: npm ci
 
-      - name: Update only Expo-validated SDK 58 package versions
+      - name: Apply Expo SDK 58 compatible patch versions
         shell: bash
         run: |
           set -euo pipefail
           cp package.json /tmp/package-before.json
           npx expo install --fix
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = "package.json";
+          const pkg = JSON.parse(fs.readFileSync(path, "utf8"));
+          // Expo's resolver may leave this older tilde range unchanged because
+          // 58.0.14 is technically inside ~58.0.13. Pin the SDK-validated range.
+          pkg.dependencies["expo-file-system"] = "~58.0.14";
+          fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
+          NODE
+          npm install
           npm run check-deps
           python3 - <<'PY'
           import json
@@ -63,7 +73,7 @@ jobs:
                           )
           if changed != allowed:
               raise SystemExit(
-                  f"Expected exactly these five Expo dependencies to change; got {sorted(changed)}"
+                  f"Expected exactly five Expo dependencies to change; got {sorted(changed)}"
               )
           expected = {
               "expo": "~58.0.26",
@@ -79,10 +89,10 @@ jobs:
                       f"Unexpected Expo-compatible version for {name}: {actual!r}; "
                       f"expected {version!r}"
                   )
-          print("Verified: only the five requested Expo SDK 58 dependency ranges changed.")
+          print("Verified: exactly the five Expo SDK 58 dependency ranges changed.")
           PY
 
-      - name: Validate lockfile and create dependency-only commit
+      - name: Verify clean lockfile installation and commit dependency files
         shell: bash
         run: |
           set -euo pipefail
