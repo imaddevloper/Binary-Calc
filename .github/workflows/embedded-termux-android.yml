@@ -236,6 +236,57 @@ jobs:
             printf "%s  %s\\n" "$expected" "$archive" | sha256sum --check
             echo "Verified dash source cached at: $archive"
           '
+      - name: Prefetch checksum-pinned foot source into the ncurses package cache
+        working-directory: termux-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          # ncurses imports the pinned foot recipe to build its foot terminfo.
+          # Cache the exact archive under the ncurses package cache and the
+          # original URL basename, so Termux's downloader reuses it without
+          # contacting Codeberg. The upstream SHA-256 remains mandatory.
+          ./scripts/run-docker.sh bash -lc '
+            set -euo pipefail
+            cache="$HOME/.termux-build/ncurses/cache"
+            archive="$cache/1.28.0.tar.gz"
+            expected="4296be402b5684d049534598e69db92b918f92beac9dab76b585207045f0b037"
+            urls=(
+              "https://mirror.nju.edu.cn/gentoo/distfiles/f1/foot-1.28.0.tar.gz"
+              "https://ftp.belnet.be/mirror/rsync.gentoo.org/gentoo/distfiles/f1/foot-1.28.0.tar.gz"
+            )
+            mkdir -p "$cache"
+
+            if [[ -f "$archive" ]] && printf "%s  %s\\n" "$expected" "$archive" | sha256sum --check --status; then
+              echo "Using existing checksum-verified foot 1.28.0 source cache."
+              exit 0
+            fi
+
+            rm -f "$archive"
+            temporary="$archive.part"
+            trap '\''rm -f "$temporary"'\'' EXIT
+            downloaded=0
+            for url in "${urls[@]}"; do
+              echo "Trying checksum-pinned foot source mirror: $url"
+              rm -f "$temporary"
+              if curl --fail --location --retry 3 --retry-all-errors --retry-delay 5 --connect-timeout 30 --max-time 300 --output "$temporary" "$url"; then
+                if printf "%s  %s\\n" "$expected" "$temporary" | sha256sum --check; then
+                  mv "$temporary" "$archive"
+                  downloaded=1
+                  break
+                fi
+                echo "::warning::Foot archive from mirror did not match the pinned upstream SHA-256; rejecting it."
+              else
+                echo "::warning::Foot source mirror unavailable; trying the next mirror."
+              fi
+            done
+            if [[ "$downloaded" -ne 1 ]]; then
+              echo "::error::Could not obtain the exact checksum-pinned foot 1.28.0 source archive."
+              exit 1
+            fi
+            trap - EXIT
+            printf "%s  %s\\n" "$expected" "$archive" | sha256sum --check
+            echo "Verified foot source cached at: $archive"
+          '
       - name: Build the official apt-android-7 bootstrap from pinned Termux sources
         working-directory: termux-packages
         shell: bash
