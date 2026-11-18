@@ -282,16 +282,19 @@ jobs:
                 dns_json="$(curl --fail --location --retry 2 --connect-timeout 20 --max-time 60 "$dns_url")" || continue
               fi
 
-              mapfile -t ips < <(printf "%s" "$dns_json" | jq -r '\''.Answer[]? | select(.type == 1) | .data'\'' | sort -u)
-              # Hosted builders can receive a successful DoH response without an
-              # A answer. Retain a recently verified Codeberg origin IP as fallback.
-              # --resolve keeps the hostname for TLS SNI/certificate checks, and
-              # the pinned upstream SHA-256 below remains mandatory.
+              # Parse the JSON with Python, which is part of the package-builder
+              # image. Do not rely on jq being installed in that container.
+              ip_lines="$(printf "%s" "$dns_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print('\\n'.join(x['data'] for x in d.get('Answer',[]) if x.get('type') == 1))")" || {
+                echo "::warning::Could not parse $resolver DNS JSON; trying the next resolver."
+                continue
+              }
+              mapfile -t ips < <(printf "%s\n" "$ip_lines" | sed '/^$/d' | sort -u)
+              # Verified current A record for codeberg.org; use only as a fallback
+              # when the DoH response has no IPv4 answer.
               if [[ "${#ips[@]}" -eq 0 ]]; then
-                echo "::warning::DoH returned no IPv4 A records (DNS status: $(printf "%s" "$dns_json" | jq -r '.Status // "unknown"')); using the verified Codeberg origin fallback."
+                echo "::warning::DoH returned no IPv4 A records; trying verified Codeberg origin IPv4 fallback."
+                ips=("217.197.84.140")
               fi
-              ips+=("217.197.84.140")
-              mapfile -t ips < <(printf "%s\n" "${ips[@]}" | sed '/^$/d' | sort -u)
               if [[ "${#ips[@]}" -eq 0 ]]; then
                 echo "::error::No Codeberg IPv4 candidates were available."
                 exit 1
